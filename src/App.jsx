@@ -381,12 +381,13 @@ export default function App() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '16px',
+        padding: '14px 16px',
         boxSizing: 'border-box',
         position: 'relative',
+        background: 'linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%)',
       }}
     >
-      {/* 상단 유틸리티 바 */}
+      {/* 상단 유틸리티 바 (밝은 배경 위에서 선명하게 보이도록 다크 텍스트 + 카드 스타일 적용) */}
       <div
         style={{
           width: '100%',
@@ -394,14 +395,25 @@ export default function App() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          color: '#e2e8f0',
-          fontSize: '13px',
-          fontWeight: '700',
           zIndex: 10,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ color: '#38bdf8' }}>●</span>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            background: '#ffffff',
+            border: '1.5px solid #bae6fd',
+            borderRadius: '20px',
+            padding: '5px 12px',
+            color: '#0f172a',
+            fontSize: '13px',
+            fontWeight: '800',
+            boxShadow: '0 2px 6px rgba(15, 23, 42, 0.06)',
+          }}
+        >
+          <span style={{ color: '#0284c7' }}>●</span>
           <span>{currentSpec.name}</span>
         </div>
 
@@ -415,7 +427,7 @@ export default function App() {
           >
             ? 도움말
           </button>
-          <button onClick={toggleMute} style={topBtnStyle}>
+          <button onClick={toggleMute} style={topBtnStyle} title="소리 켜기/끄기">
             {isMuted ? '🔇' : '🔊'}
           </button>
           <button
@@ -609,7 +621,7 @@ export default function App() {
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(15, 23, 42, 0.78)',
+            background: 'rgba(15, 23, 42, 0.72)',
             backdropFilter: 'blur(4px)',
             zIndex: 9999,
             display: 'flex',
@@ -696,7 +708,7 @@ export default function App() {
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(15, 23, 42, 0.78)',
+            background: 'rgba(15, 23, 42, 0.72)',
             backdropFilter: 'blur(4px)',
             zIndex: 9999,
             display: 'flex',
@@ -720,14 +732,15 @@ export default function App() {
 }
 
 const topBtnStyle = {
-  background: 'rgba(255,255,255,0.12)',
-  border: '1px solid rgba(255,255,255,0.2)',
-  borderRadius: '8px',
-  color: '#f8fafc',
-  fontSize: '11px',
-  fontWeight: '700',
+  background: '#ffffff',
+  border: '1.5px solid #cbd5e1',
+  borderRadius: '10px',
+  color: '#0f172a',
+  fontSize: '11.5px',
+  fontWeight: '800',
   padding: '5px 10px',
   cursor: 'pointer',
+  boxShadow: '0 2px 5px rgba(15, 23, 42, 0.06)',
 };
 
 const lcdColStyle = {
