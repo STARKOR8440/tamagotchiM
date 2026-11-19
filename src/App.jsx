@@ -3,6 +3,7 @@ import PetSprite from './PetSprite';
 import MiniGame from './MiniGame';
 import TamagotchiShell, { SHELL_SKINS } from './TamagotchiShell';
 import EvolutionDexModal from './EvolutionDexModal';
+import GuideModal from './GuideModal';
 import {
   SPECIES,
   checkEvolutionStatus,
@@ -68,6 +69,7 @@ export default function App() {
   const [skinPage, setSkinPage] = useState(0);
   const [selectedMenuIdx, setSelectedMenuIdx] = useState(0);
   const [showDex, setShowDex] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [actionState, setActionState] = useState('IDLE');
   const [isMuted, setIsMuted] = useState(false);
 
@@ -171,9 +173,6 @@ export default function App() {
   };
 
   // 히든 치트 커맨드 3종
-  // 1) A-A-B-B-C : +500코인 & 풀충전
-  // 2) C-C-A-B-B : 다음 단계 진화 (최종 성체일 경우 다른 성체로 환생 변신!)
-  // 3) B-B-A-C-C : 아이템 테스트 부스트 (+2000코인 & 3대 속성 +5)
   const recordCheatInput = (btn) => {
     const nextSeq = [...cheatSeqRef.current, btn].slice(-5);
     cheatSeqRef.current = nextSeq;
@@ -190,6 +189,7 @@ export default function App() {
       }));
       setLcdScreen('PET');
       setShowDex(false);
+      setShowGuide(false);
       triggerReaction('치트 발동! +500🪙 & 풀충전 🎉');
       return true;
     }
@@ -210,6 +210,7 @@ export default function App() {
       }));
       setLcdScreen('PET');
       setShowDex(false);
+      setShowGuide(false);
       triggerReaction('아이템 치트! +2000🪙 & 올스탯+5 🔮');
       return true;
     }
@@ -245,6 +246,7 @@ export default function App() {
       }));
       setLcdScreen('PET');
       setShowDex(false);
+      setShowGuide(false);
       triggerReaction(
         currentSpec.stage === 'ADULT'
           ? `성체 환생! ${evolvedSpec.name} 🔮`
@@ -267,6 +269,7 @@ export default function App() {
     }));
     setLcdScreen('PET');
     setShowDex(false);
+    setShowGuide(false);
     triggerReaction(isHardReset ? '처음부터 새 알! 🥚' : '독립 완료! 2세대 알 도착 🥚');
   };
 
@@ -550,6 +553,15 @@ export default function App() {
         </div>
 
         <div style={{ display: 'flex', gap: '6px' }}>
+          <button
+            onClick={() => {
+              sfx.confirm();
+              setShowGuide(true);
+            }}
+            style={topBtnStyle}
+          >
+            ? 도움말
+          </button>
           <button onClick={toggleMute} style={topBtnStyle} title="소리 켜기/끄기">
             {isMuted ? '🔇' : '🔊'}
           </button>
@@ -822,6 +834,16 @@ export default function App() {
           </TamagotchiShell>
         </div>
       </div>
+
+      {/* 사용 가이드 모달 */}
+      {showGuide && (
+        <GuideModal
+          onClose={() => {
+            sfx.beep();
+            setShowGuide(false);
+          }}
+        />
+      )}
 
       {/* 진화 도감 전체화면 오버레이 모달 */}
       {showDex && (
