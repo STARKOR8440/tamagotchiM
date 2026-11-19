@@ -1,21 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import PetSprite from './PetSprite';
 import MiniGame from './MiniGame';
 import TamagotchiShell, { SHELL_SKINS } from './TamagotchiShell';
 import EvolutionDexModal from './EvolutionDexModal';
-import GuideModal from './GuideModal';
-import {
-  SPECIES,
-  checkEvolutionStatus,
-  evolveCrossRandom,
-  reincarnateAdult,
-} from './evolutionTree';
+import { SPECIES, checkEvolutionStatus, evolveCrossRandom } from './evolutionTree';
 import { sfx } from './sound';
 
-const STORAGE_KEY = 'desktop_tamagotchi_balanced_v1';
+const STORAGE_KEY = 'mobile_tamagotchi_pwa_v1';
 const SKIN_KEYS = Object.keys(SHELL_SKINS);
 const MENU_IDS = ['FEED', 'PLAY', 'CLEAN', 'SHOP', 'STATUS', 'DEX'];
-const IS_ELECTRON = Boolean(typeof window !== 'undefined' && window.electronAPI);
 
 const getTodayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -65,127 +58,20 @@ export default function App() {
     };
   });
 
-  const [sysStats, setSysStats] = useState({ cpu: 0, mem: 0 });
-  const [batteryLevel, setBatteryLevel] = useState(100);
-  const [mobileScale, setMobileScale] = useState(1.35);
   const [lcdScreen, setLcdScreen] = useState('PET');
   const [shopTab, setShopTab] = useState('SKIN');
-  const [skinPage, setSkinPage] = useState(0);
   const [selectedMenuIdx, setSelectedMenuIdx] = useState(0);
   const [showDex, setShowDex] = useState(false);
-  const [showGuide, setShowGuide] = useState(false);
   const [actionState, setActionState] = useState('IDLE');
+  const [isMuted, setIsMuted] = useState(false);
 
-  const [isHovered, setIsHovered] = useState(!IS_ELECTRON);
-  const [isDragging, setIsDragging] = useState(false);
-  const [walkEnabled, setWalkEnabled] = useState(true);
   const [direction, setDirection] = useState(1);
   const [frame, setFrame] = useState(0);
   const [reaction, setReaction] = useState('');
 
-  const dragStartRef = useRef({ x: 0, y: 0 });
-  const directionRef = useRef(1);
-  const lastOverheatAlertRef = useRef(0);
-  const lastHintAlertRef = useRef(0);
-  const hoverTimerRef = useRef(null);
-  const cheatSeqRef = useRef([]);
-
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...pet, lastUpdated: Date.now() }));
   }, [pet]);
-
-  // 모바일 뷰포트 반응형 스케일 계산
-  useEffect(() => {
-    if (IS_ELECTRON) return;
-    const updateScale = () => {
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      const scaleW = (vw * 0.88) / 248;
-      const scaleH = (vh * 0.72) / 305;
-      setMobileScale(Math.max(1.05, Math.min(1.85, Math.min(scaleW, scaleH))));
-    };
-    updateScale();
-    window.addEventListener('resize', updateScale);
-    return () => window.removeEventListener('resize', updateScale);
-  }, []);
-
-  // 모바일 배터리 API 연동 (PC CPU/RAM 대체)
-  useEffect(() => {
-    if (IS_ELECTRON || !navigator.getBattery) return;
-    let batteryRef = null;
-    const syncBattery = () => {
-      if (!batteryRef) return;
-      const pct = Math.round(batteryRef.level * 100);
-      setBatteryLevel(pct);
-      const now = Date.now();
-      if (pct <= 20 && !batteryRef.charging && now - lastOverheatAlertRef.current > 45000) {
-        triggerReaction(`배터리 ${pct}%! 충전해줘 🪫`);
-        lastOverheatAlertRef.current = now;
-      }
-    };
-    navigator.getBattery().then((bat) => {
-      batteryRef = bat;
-      syncBattery();
-      bat.addEventListener('levelchange', syncBattery);
-      bat.addEventListener('chargingchange', syncBattery);
-    });
-    return () => {
-      if (batteryRef) {
-        batteryRef.removeEventListener('levelchange', syncBattery);
-        batteryRef.removeEventListener('chargingchange', syncBattery);
-      }
-    };
-  }, []);
-
-  const handleCloseDex = () => {
-    sfx.beep();
-    setShowDex(false);
-    setLcdScreen('PET');
-    setIsHovered(true);
-    window.electronAPI?.setIgnoreMouseEvents(false);
-  };
-
-  const handleCloseGuide = () => {
-    sfx.beep();
-    setShowGuide(false);
-    setLcdScreen('PET');
-    setIsHovered(true);
-    window.electronAPI?.setIgnoreMouseEvents(false);
-  };
-
-  useEffect(() => {
-    const isModalOpen = showDex || showGuide;
-    window.electronAPI?.resizeForDex?.(isModalOpen);
-    if (isModalOpen) {
-      window.electronAPI?.setIgnoreMouseEvents(false);
-    }
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        if (showDex) handleCloseDex();
-        if (showGuide) handleCloseGuide();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showDex, showGuide]);
-
-  useEffect(() => {
-    if (!window.electronAPI?.onSystemStats) return;
-    return window.electronAPI.onSystemStats((stats) => {
-      setSysStats(stats);
-      const now = Date.now();
-      if (now - lastOverheatAlertRef.current > 25000) {
-        if (stats.cpu >= 75) {
-          triggerReaction(`CPU ${stats.cpu}%! 땀난다 💦`);
-          lastOverheatAlertRef.current = now;
-        } else if (stats.mem >= 85) {
-          triggerReaction(`RAM ${stats.mem}%! 무거워 😵`);
-          lastOverheatAlertRef.current = now;
-        }
-      }
-    });
-  }, []);
 
   // 1초 게임 루프
   useEffect(() => {
@@ -199,17 +85,14 @@ export default function App() {
 
         const evoStatus = checkEvolutionStatus({ ...prev, ageSeconds: nextAge });
         if (evoStatus.ready) {
-          nextSpeciesId = evolveCrossRandom(currentSpec.stage, prev.careStats, prev);
+          nextSpeciesId = evolveCrossRandom(currentSpec.stage, prev.careStats);
           const evolvedSpec = SPECIES[nextSpeciesId];
           if (!nextUnlocked.includes(nextSpeciesId)) {
             nextUnlocked = [...nextUnlocked, nextSpeciesId];
           }
           sfx.evolve();
           triggerAction('HAPPY');
-          triggerReaction(`${evolvedSpec.name} 진화! ✨`);
-        } else if (evoStatus.reason && Date.now() - lastHintAlertRef.current > 45000) {
-          triggerReaction(evoStatus.reason);
-          lastHintAlertRef.current = Date.now();
+          triggerReaction(`${evolvedSpec.name}로 진화! ✨`);
         }
 
         const nextEnergy = nextAge % 30 === 0 ? Math.min(100, (prev.energy ?? 100) + 1) : (prev.energy ?? 100);
@@ -246,50 +129,17 @@ export default function App() {
     return () => clearInterval(loop);
   }, []);
 
-  // 애니메이션 프레임 & 데스크톱 자율 AI 배회 루프
+  // LCD 화면 내 캐릭터 도트 애니메이션 루프
   useEffect(() => {
-    const walkTimer = setInterval(async () => {
+    const animTimer = setInterval(() => {
       setFrame((f) => (f === 0 ? 1 : 0));
-
-      if (!IS_ELECTRON) return;
-      const currentSpec = SPECIES[pet.speciesId] || SPECIES.EGG;
-      if (!walkEnabled || isHovered || isDragging || showDex || showGuide || currentSpec.stage === 'EGG') return;
-
-      if (Math.random() < 0.08) {
-        directionRef.current *= -1;
-        setDirection(directionRef.current);
-        return;
+      if (Math.random() < 0.2) {
+        setDirection((d) => d * -1);
       }
+    }, 450);
 
-      if (window.electronAPI?.stepWalk) {
-        const res = await window.electronAPI.stepWalk(directionRef.current * 4);
-        if (res?.hitEdge) {
-          directionRef.current *= -1;
-          setDirection(directionRef.current);
-        }
-      }
-    }, 350);
-
-    return () => clearInterval(walkTimer);
-  }, [walkEnabled, isHovered, isDragging, showDex, showGuide, pet.speciesId]);
-
-  // Electron 트레이 액션 수신
-  useEffect(() => {
-    if (!window.electronAPI) return;
-    const unsubAction = window.electronAPI.onTamagotchiAction((action) => {
-      if (action === 'RESET') {
-        startNextGeneration(true);
-      } else {
-        executeMenuAction(action);
-      }
-    });
-    const unsubWalk = window.electronAPI.onToggleWalk((enabled) => setWalkEnabled(enabled));
-
-    return () => {
-      unsubAction();
-      unsubWalk();
-    };
-  }, [pet.speciesId]);
+    return () => clearInterval(animTimer);
+  }, []);
 
   const triggerReaction = (text) => {
     setReaction(text);
@@ -301,90 +151,11 @@ export default function App() {
     setTimeout(() => setActionState('IDLE'), 1800);
   };
 
-  // 히든 치트 커맨드 3종
-  const recordCheatInput = (btn) => {
-    const nextSeq = [...cheatSeqRef.current, btn].slice(-5);
-    cheatSeqRef.current = nextSeq;
-    const code = nextSeq.join('');
-
-    if (code === 'AABBC') {
-      cheatSeqRef.current = [];
-      sfx.evolve();
-      triggerAction('HAPPY');
-      setPet((p) => ({
-        ...p,
-        coins: (p.coins || 0) + 500,
-        energy: 100,
-      }));
-      setLcdScreen('PET');
-      setShowDex(false);
-      setShowGuide(false);
-      triggerReaction('치트 발동! +500🪙 & 풀충전 🎉');
-      return true;
-    }
-
-    if (code === 'BBACC') {
-      cheatSeqRef.current = [];
-      sfx.win();
-      triggerAction('HAPPY');
-      setPet((p) => ({
-        ...p,
-        coins: (p.coins || 0) + 2000,
-        energy: 100,
-        careStats: {
-          sky: (p.careStats?.sky || 1) + 5,
-          land: (p.careStats?.land || 1) + 5,
-          water: (p.careStats?.water || 1) + 5,
-        },
-      }));
-      setLcdScreen('PET');
-      setShowDex(false);
-      setShowGuide(false);
-      triggerReaction('아이템 치트! +2000🪙 & 올스탯+5 🔮');
-      return true;
-    }
-
-    if (code === 'CCABB') {
-      cheatSeqRef.current = [];
-      const currentSpec = SPECIES[pet.speciesId] || SPECIES.EGG;
-
-      const nextSpeciesId =
-        currentSpec.stage === 'ADULT'
-          ? reincarnateAdult(pet.speciesId, pet.careStats, pet.unlockedSpecies)
-          : evolveCrossRandom(currentSpec.stage, pet.careStats, {
-              ...pet,
-              gameWins: Math.max(5, pet.gameWins || 0),
-              hunger: 100,
-              happiness: 100,
-            });
-
-      const evolvedSpec = SPECIES[nextSpeciesId];
-      sfx.evolve();
-      triggerAction('HAPPY');
-      setPet((p) => ({
-        ...p,
-        speciesId: nextSpeciesId,
-        hunger: 100,
-        happiness: 100,
-        cleanliness: 100,
-        energy: 100,
-        poopCount: 0,
-        unlockedSpecies: p.unlockedSpecies?.includes(nextSpeciesId)
-          ? p.unlockedSpecies
-          : [...(p.unlockedSpecies || ['EGG']), nextSpeciesId],
-      }));
-      setLcdScreen('PET');
-      setShowDex(false);
-      setShowGuide(false);
-      triggerReaction(
-        currentSpec.stage === 'ADULT'
-          ? `성체 환생! ${evolvedSpec.name} 🔮`
-          : `치트 진화! ${evolvedSpec.name} ✨`
-      );
-      return true;
-    }
-
-    return false;
+  const toggleMute = () => {
+    const nextMuted = !isMuted;
+    sfx.muted = nextMuted;
+    setIsMuted(nextMuted);
+    if (!nextMuted) sfx.beep();
   };
 
   const startNextGeneration = (isHardReset = false) => {
@@ -398,8 +169,7 @@ export default function App() {
     }));
     setLcdScreen('PET');
     setShowDex(false);
-    setShowGuide(false);
-    triggerReaction(isHardReset ? '처음부터 새 알! 🥚' : '독립 완료! 2세대 알 도착 🥚');
+    triggerReaction(isHardReset ? '새 알 도착! 🥚' : '독립 완료! 2세대 알 도착 🥚');
   };
 
   const feedPet = (foodType) => {
@@ -411,7 +181,7 @@ export default function App() {
       if (now < (pet.digestUntil || 0)) {
         const remainMin = Math.ceil((pet.digestUntil - now) / 60000);
         sfx.beep();
-        triggerReaction(`배불러! ${remainMin}분 뒤 소화됨 🙅`);
+        triggerReaction(`배불러! ${remainMin}분 뒤 소화 🙅`);
         setLcdScreen('PET');
         return;
       }
@@ -428,7 +198,7 @@ export default function App() {
     } else {
       if (currentSnacks >= 3) {
         sfx.beep();
-        triggerReaction('오늘 간식은 끝! 충치 조심 🦷');
+        triggerReaction('오늘 간식은 끝! 🦷');
         setLcdScreen('PET');
         return;
       }
@@ -460,7 +230,7 @@ export default function App() {
 
     if (pet.coins < skinInfo.price) {
       sfx.beep();
-      triggerReaction(`코인 부족! (${skinInfo.price}🪙 필요)`);
+      triggerReaction(`코인 부족! (${skinInfo.price}🪙)`);
       return;
     }
 
@@ -471,14 +241,14 @@ export default function App() {
       skin: skinKey,
       unlockedSkins: [...(p.unlockedSkins || ['SODA_BLUE']), skinKey],
     }));
-    triggerReaction(`${skinInfo.name} 해금 완료! 🎉`);
+    triggerReaction(`${skinInfo.name} 해금! 🎉`);
   };
 
   const buyEnergyDrink = () => {
     const price = 15;
     if ((pet.energy ?? 100) >= 100) {
       sfx.beep();
-      triggerReaction('이미 체력이 가득 찼어요! ⚡');
+      triggerReaction('체력이 이미 가득해요! ⚡');
       return;
     }
     if (pet.coins < price) {
@@ -518,37 +288,6 @@ export default function App() {
     setLcdScreen('PET');
   };
 
-  const buyReincarnationOrb = () => {
-    const price = 1000;
-    const currentSpec = SPECIES[pet.speciesId] || SPECIES.EGG;
-    if (currentSpec.stage !== 'ADULT') {
-      sfx.beep();
-      triggerReaction('최종 성체만 사용할 수 있어요! 🔮');
-      return;
-    }
-    if (pet.coins < price) {
-      sfx.beep();
-      triggerReaction('1000🪙가 필요해요!');
-      return;
-    }
-
-    const nextSpeciesId = reincarnateAdult(pet.speciesId, pet.careStats, pet.unlockedSpecies);
-    const nextSpec = SPECIES[nextSpeciesId];
-
-    sfx.evolve();
-    triggerAction('HAPPY');
-    setPet((p) => ({
-      ...p,
-      coins: p.coins - price,
-      speciesId: nextSpeciesId,
-      unlockedSpecies: p.unlockedSpecies?.includes(nextSpeciesId)
-        ? p.unlockedSpecies
-        : [...(p.unlockedSpecies || ['EGG']), nextSpeciesId],
-    }));
-    setLcdScreen('PET');
-    triggerReaction(`${nextSpec.name}(으)로 환생 완료! 🔮✨`);
-  };
-
   const executeMenuAction = (type) => {
     sfx.confirm();
     if (type === 'DEX') {
@@ -576,7 +315,7 @@ export default function App() {
     } else if (type === 'PLAY') {
       if ((pet.energy ?? 100) < 20) {
         sfx.beep();
-        triggerReaction('체력 부족! 밥이나 드링크 필요 ⚡');
+        triggerReaction('체력 부족! 밥/드링크 필요 ⚡');
         return;
       }
       setLcdScreen('GAME');
@@ -605,7 +344,6 @@ export default function App() {
   };
 
   const handlePressA = () => {
-    if (recordCheatInput('A')) return;
     sfx.beep();
     if (lcdScreen === 'SHOP') {
       setShopTab((prev) => (prev === 'SKIN' ? 'ITEM' : 'SKIN'));
@@ -615,7 +353,6 @@ export default function App() {
   };
 
   const handlePressB = () => {
-    if (recordCheatInput('B')) return;
     if (lcdScreen === 'SHOP') {
       sfx.beep();
       setShopTab((prev) => (prev === 'SKIN' ? 'ITEM' : 'SKIN'));
@@ -625,565 +362,314 @@ export default function App() {
   };
 
   const handlePressC = () => {
-    if (recordCheatInput('C')) return;
     sfx.beep();
     setLcdScreen('PET');
   };
 
-  const handleMouseEnter = () => {
-    if (!IS_ELECTRON) return;
-    window.electronAPI?.setIgnoreMouseEvents(false);
-    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-    hoverTimerRef.current = setTimeout(() => {
-      setIsHovered(true);
-    }, 180);
-  };
-
-  const handleMouseLeave = () => {
-    if (!IS_ELECTRON) return;
-    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-    if (!isDragging && lcdScreen === 'PET' && !showDex && !showGuide) {
-      setIsHovered(false);
-      window.electronAPI?.setIgnoreMouseEvents(true, { forward: true });
-    }
-  };
-
-  const handleMouseDown = (e) => {
-    if (!IS_ELECTRON || e.button !== 0) return;
-    setIsDragging(true);
-    dragStartRef.current = { x: e.screenX, y: e.screenY };
-  };
-
-  useEffect(() => {
-    if (!IS_ELECTRON || !isDragging) return;
-    const onMove = (e) => {
-      const dx = e.screenX - dragStartRef.current.x;
-      const dy = e.screenY - dragStartRef.current.y;
-      dragStartRef.current = { x: e.screenX, y: e.screenY };
-      window.electronAPI?.moveWindow(dx, dy);
-    };
-    const onUp = () => setIsDragging(false);
-
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-  }, [isDragging]);
-
-  if (showDex) {
-    return (
-      <EvolutionDexModal
-        unlockedSpecies={pet.unlockedSpecies}
-        currentSpeciesId={pet.speciesId}
-        careStats={pet.careStats}
-        onClose={handleCloseDex}
-      />
-    );
-  }
-
-  if (showGuide) {
-    return <GuideModal onClose={handleCloseGuide} />;
-  }
-
   const currentSpec = SPECIES[pet.speciesId] || SPECIES.EGG;
   const currentHour = new Date().getHours();
   const isSleeping = currentHour >= 23 || currentHour < 6;
-  const isOverheated = IS_ELECTRON ? sysStats.cpu >= 75 : batteryLevel <= 20;
-  const showDevice = !IS_ELECTRON || isHovered || lcdScreen !== 'PET';
   const canGraduate = currentSpec.stage === 'ADULT' && (pet.adultSeconds || 0) >= 86400;
-  const pagedSkins = SKIN_KEYS.slice(skinPage * 4, skinPage * 4 + 4);
 
-  const shellContent = (
-    <TamagotchiShell
-      skinKey={pet.skin}
-      coins={pet.coins}
-      selectedMenuIdx={selectedMenuIdx}
-      onPressA={handlePressA}
-      onPressB={handlePressB}
-      onPressC={handlePressC}
-      onOpenGuide={() => {
-        sfx.confirm();
-        setShowGuide(true);
-      }}
-      onSelectMenu={(idx) => {
-        setSelectedMenuIdx(idx);
-        executeMenuAction(MENU_IDS[idx]);
-      }}
-    >
-      {lcdScreen === 'FOOD' && (
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '4px', color: '#0f172a' }}>
-          <div style={{ fontSize: '9.5px', textAlign: 'center', fontWeight: 'bold' }}>식사 및 간식</div>
-          <button onClick={(e) => { e.stopPropagation(); feedPet('RICE'); }} style={lcdBtnStyle}>
-            🍙 주먹밥 (+체력15)
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); feedPet('CAKE'); }} style={lcdBtnStyle}>
-            🍰 케이크 ({pet.snackDate === getTodayStr() ? pet.snacksToday : 0}/3)
-          </button>
-        </div>
-      )}
-
-      {lcdScreen === 'GAME' && (
-        <MiniGame
-          onFinish={(bonus, msg, customCoins) => {
-            const isWin = bonus >= 20;
-            const earnedCoins = customCoins ?? (isWin ? 15 : 5);
-            setPet((p) => ({
-              ...p,
-              energy: Math.max(0, (p.energy ?? 100) - 20),
-              happiness: Math.min(100, p.happiness + bonus),
-              coins: p.coins + earnedCoins,
-              gameWins: (p.gameWins || 0) + (isWin ? 1 : 0),
-              careStats: { ...p.careStats, sky: (p.careStats?.sky || 1) + (isWin ? 2 : 1) },
-            }));
-            triggerAction('HAPPY');
-            setLcdScreen('PET');
-            triggerReaction(`${msg} +${earnedCoins}🪙`);
-          }}
-        />
-      )}
-
-      {lcdScreen === 'SHOP' && (
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '2px', color: '#0f172a' }}>
-          <div style={{ display: 'flex', gap: '3px', width: '100%' }}>
-            <button
-              onClick={(e) => { e.stopPropagation(); sfx.beep(); setShopTab('SKIN'); }}
-              style={{
-                flex: 1,
-                background: shopTab === 'SKIN' ? '#1e293b' : 'rgba(15,23,42,0.08)',
-                color: shopTab === 'SKIN' ? '#f8fafc' : '#0f172a',
-                border: '1px solid #1e293b',
-                borderRadius: '3px',
-                fontSize: '8.5px',
-                padding: '1px 0',
-                cursor: 'pointer',
-              }}
-            >
-              스킨(8)
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); sfx.beep(); setShopTab('ITEM'); }}
-              style={{
-                flex: 1,
-                background: shopTab === 'ITEM' ? '#1e293b' : 'rgba(15,23,42,0.08)',
-                color: shopTab === 'ITEM' ? '#f8fafc' : '#0f172a',
-                border: '1px solid #1e293b',
-                borderRadius: '3px',
-                fontSize: '8.5px',
-                padding: '1px 0',
-                cursor: 'pointer',
-              }}
-            >
-              아이템(5)
-            </button>
-          </div>
-
-          {shopTab === 'SKIN' ? (
-            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', width: '100%' }}>
-                {pagedSkins.map((key) => {
-                  const info = SHELL_SKINS[key];
-                  const unlocked = pet.unlockedSkins?.includes(key);
-                  const equipped = pet.skin === key;
-                  return (
-                    <button
-                      key={key}
-                      onClick={(e) => { e.stopPropagation(); buyOrEquipSkin(key); }}
-                      style={{
-                        background: equipped ? '#1e293b' : 'rgba(255,255,255,0.45)',
-                        color: equipped ? '#f8fafc' : '#0f172a',
-                        border: '1px solid #334155',
-                        borderRadius: '3px',
-                        fontSize: '7.8px',
-                        padding: '2px 1px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {info.name.slice(0, 4)} {unlocked ? (equipped ? '✓' : '착용') : `${info.price}🪙`}
-                    </button>
-                  );
-                })}
-              </div>
-              <button
-                onClick={(e) => { e.stopPropagation(); sfx.beep(); setSkinPage((p) => (p === 0 ? 1 : 0)); }}
-                style={{
-                  width: '100%',
-                  background: 'rgba(15,23,42,0.14)',
-                  border: '1px solid #334155',
-                  borderRadius: '3px',
-                  fontSize: '8px',
-                  padding: '1px',
-                  cursor: 'pointer',
-                  color: '#0f172a',
-                }}
-              >
-                {skinPage === 0 ? '다음 스킨 ▶ (1/2)' : '◀ 이전 스킨 (2/2)'}
-              </button>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', width: '100%' }}>
-              <button onClick={(e) => { e.stopPropagation(); buyEnergyDrink(); }} style={shopGridItemStyle}>
-                ⚡드링크 15🪙
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); buyAttributeFruit('sky', '하늘'); }} style={shopGridItemStyle}>
-                🍑하늘 30🪙
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); buyAttributeFruit('land', '대지'); }} style={shopGridItemStyle}>
-                🍏대지 30🪙
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); buyAttributeFruit('water', '바다'); }} style={shopGridItemStyle}>
-                🫐바다 30🪙
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); buyReincarnationOrb(); }}
-                style={{
-                  ...shopGridItemStyle,
-                  gridColumn: '1 / -1',
-                  background: 'rgba(254, 240, 138, 0.75)',
-                  fontWeight: 'bold',
-                  textAlign: 'center',
-                }}
-              >
-                🔮 성체 환생구슬 1000🪙
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {lcdScreen === 'STATUS' && (
-        <div
-          style={{
-            width: '100%',
-            fontSize: '8.5px',
-            color: '#0f172a',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '2.5px',
-          }}
-        >
-          <div style={{ textAlign: 'center', borderBottom: '1px solid #334155', paddingBottom: '1px' }}>
-            {currentSpec.name} ({Math.floor(pet.ageSeconds / 60)}분)
-          </div>
-          <StatGauge label="포만" value={pet.hunger} />
-          <StatGauge label="행복" value={pet.happiness} />
-          <StatGauge label="체력" value={pet.energy ?? 100} />
-          {canGraduate ? (
-            <button
-              onClick={(e) => { e.stopPropagation(); startNextGeneration(false); }}
-              style={{
-                background: '#1e293b',
-                color: '#f8fafc',
-                border: 'none',
-                borderRadius: '3px',
-                fontSize: '8px',
-                padding: '2px',
-                cursor: 'pointer',
-              }}
-            >
-              🥚 2세대 알 물려받기
-            </button>
-          ) : (
-            <div style={{ fontSize: '8px', textAlign: 'center', opacity: 0.85 }}>
-              승리 {pet.gameWins || 0}회 · {IS_ELECTRON ? `CPU ${sysStats.cpu}%` : `배터리 ${batteryLevel}%`}
-            </div>
-          )}
-        </div>
-      )}
-
-      {lcdScreen === 'PET' && (
-        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          {reaction && (
-            <div
-              style={{
-                fontSize: '8.5px',
-                color: '#0f172a',
-                background: 'rgba(255,255,255,0.72)',
-                border: '1px solid rgba(15,23,42,0.2)',
-                padding: '1px 5px',
-                borderRadius: '4px',
-                marginBottom: '1px',
-                textAlign: 'center',
-              }}
-            >
-              {reaction}
-            </div>
-          )}
-          <PetSprite
-            speciesId={pet.speciesId}
-            direction={direction}
-            frame={frame}
-            actionState={actionState}
-            isDragging={isDragging}
-            isSleeping={isSleeping}
-            isDirty={pet.cleanliness < 35}
-            isOverheated={isOverheated}
-            lcdMode={true}
-          />
-          {pet.poopCount > 0 && (
-            <span
-              style={{
-                position: 'absolute',
-                bottom: 0,
-                right: -12,
-                fontSize: '12px',
-                filter: 'grayscale(100%) contrast(180%)',
-              }}
-            >
-              {'💩'.repeat(pet.poopCount)}
-            </span>
-          )}
-        </div>
-      )}
-    </TamagotchiShell>
-  );
-
-  // 모바일 / 웹 브라우저 전용 레이아웃
-  if (!IS_ELECTRON) {
-    return (
-      <div
-        style={{
-          width: '100vw',
-          height: '100dvh',
-          background: isSleeping
-            ? 'linear-gradient(180deg, #0f172a 0%, #1e293b 60%, #334155 100%)'
-            : 'linear-gradient(180deg, #bae6fd 0%, #e0f2fe 55%, #f0fdf4 100%)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: 'env(safe-area-inset-top, 14px) 12px env(safe-area-inset-bottom, 16px)',
-          boxSizing: 'border-box',
-          userSelect: 'none',
-          overflow: 'hidden',
-        }}
-      >
-        {/* 상단 상태 배지 */}
-        <div
-          style={{
-            width: '100%',
-            maxWidth: '400px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            background: 'rgba(255, 255, 255, 0.85)',
-            backdropFilter: 'blur(6px)',
-            padding: '8px 14px',
-            borderRadius: '16px',
-            boxShadow: '0 4px 12px rgba(15, 23, 42, 0.08)',
-            fontSize: '12px',
-            fontWeight: '800',
-            color: '#0f172a',
-          }}
-        >
-          <span>🥚 {currentSpec.name}</span>
-          <span>
-            도감 {pet.unlockedSpecies?.length || 1}/{Object.keys(SPECIES).length} · 🪙{pet.coins}
-          </span>
-        </div>
-
-        {/* 중앙 확대된 다마고치 본체 */}
-        <div
-          style={{
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transform: `scale(${mobileScale})`,
-            transformOrigin: 'center center',
-          }}
-        >
-          {shellContent}
-        </div>
-
-        {/* 하단 모바일 빠른 실행 바 */}
-        <div
-          style={{
-            width: '100%',
-            maxWidth: '400px',
-            display: 'flex',
-            gap: '8px',
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              sfx.confirm();
-              setShowDex(true);
-            }}
-            style={mobileQuickBtnStyle}
-          >
-            📖 진화 도감
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              sfx.confirm();
-              setShowGuide(true);
-            }}
-            style={mobileQuickBtnStyle}
-          >
-            📘 사용 가이드
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (window.confirm('정말 처음부터 새 알로 초기화할까요? (도감과 스킨은 유지됩니다)')) {
-                startNextGeneration(true);
-              }
-            }}
-            style={{ ...mobileQuickBtnStyle, flex: 0.7, background: 'rgba(254, 226, 226, 0.9)', color: '#b91c1c' }}
-          >
-            🔄 새 알
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // 데스크톱 Electron 전용 레이아웃
   return (
     <div
       style={{
         width: '100vw',
-        height: '100vh',
+        height: '100dvh',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'flex-end',
-        paddingBottom: '4px',
+        justifyContent: 'space-between',
+        padding: '16px',
         boxSizing: 'border-box',
+        position: 'relative',
       }}
     >
+      {/* 상단 유틸리티 바 */}
       <div
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        onMouseDown={handleMouseDown}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          sfx.confirm();
-          setShowDex(true);
-        }}
         style={{
-          cursor: isDragging ? 'grabbing' : 'grab',
+          width: '100%',
+          maxWidth: '400px',
           display: 'flex',
-          flexDirection: 'column',
+          justifyContent: 'space-between',
           alignItems: 'center',
+          color: '#e2e8f0',
+          fontSize: '13px',
+          fontWeight: '700',
+          zIndex: 10,
         }}
       >
-        {showDevice ? (
-          shellContent
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
-            {reaction && (
-              <div
-                style={{
-                  background: 'rgba(255, 255, 255, 0.96)',
-                  color: '#0f172a',
-                  border: '1.5px solid #cbd5e1',
-                  padding: '3px 10px',
-                  borderRadius: '12px',
-                  fontSize: '11.5px',
-                  boxShadow: '0 4px 12px rgba(15,23,42,0.22)',
-                  marginBottom: '4px',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {reaction}
-              </div>
-            )}
-            <div style={{ position: 'relative' }}>
-              <PetSprite
-                speciesId={pet.speciesId}
-                direction={direction}
-                frame={frame}
-                actionState={actionState}
-                isDragging={isDragging}
-                isSleeping={isSleeping}
-                isDirty={pet.cleanliness < 35}
-                isOverheated={isOverheated}
-                lcdMode={false}
-              />
-              {isSleeping && currentSpec.stage !== 'EGG' && (
-                <span style={{ position: 'absolute', top: 2, right: -6, fontSize: '13px', color: '#fff', textShadow: '0 1px 3px #0f172a' }}>
-                  Zzz
-                </span>
-              )}
-              {pet.poopCount > 0 && (
-                <span style={{ position: 'absolute', bottom: 2, right: -16, fontSize: '19px' }}>
-                  {'💩'.repeat(pet.poopCount)}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ color: '#38bdf8' }}>●</span>
+          <span>{currentSpec.name}</span>
+        </div>
 
-function StatGauge({ label, value }) {
-  const safeVal = Math.max(0, Math.min(100, value));
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', width: '100%' }}>
-      <span style={{ width: '24px', fontSize: '8px' }}>{label}</span>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={toggleMute} style={topBtnStyle}>
+            {isMuted ? '🔇 음소거' : '🔊 효과음'}
+          </button>
+          <button
+            onClick={() => {
+              if (window.confirm('현재 캐릭터를 초기화하고 새 알부터 시작할까요?')) {
+                startNextGeneration(true);
+              }
+            }}
+            style={topBtnStyle}
+          >
+            🔄 초기화
+          </button>
+        </div>
+      </div>
+
+      {/* 중앙 다마고치 본체 */}
       <div
         style={{
           flex: 1,
-          height: '6px',
-          border: '1px solid #1e293b',
-          borderRadius: '2px',
-          background: 'rgba(255,255,255,0.35)',
-          padding: '0.5px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
         <div
           style={{
-            width: `${safeVal}%`,
-            height: '100%',
-            background: '#1e293b',
-            transition: 'width 0.2s ease',
+            transform: 'scale(1.32)',
+            transformOrigin: 'center center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
-        />
+        >
+          <TamagotchiShell
+            skinKey={pet.skin}
+            coins={pet.coins}
+            selectedMenuIdx={selectedMenuIdx}
+            onPressA={handlePressA}
+            onPressB={handlePressB}
+            onPressC={handlePressC}
+            onSelectMenu={(idx) => {
+              setSelectedMenuIdx(idx);
+              executeMenuAction(MENU_IDS[idx]);
+            }}
+          >
+            {lcdScreen === 'FOOD' && (
+              <div style={lcdColStyle}>
+                <div style={{ fontSize: '9px', fontWeight: '900' }}>[식사 및 간식]</div>
+                <button onClick={() => feedPet('RICE')} style={lcdBtnStyle}>
+                  🍙 주먹밥 (+체력15)
+                </button>
+                <button onClick={() => feedPet('CAKE')} style={lcdBtnStyle}>
+                  🍰 케이크 ({pet.snackDate === getTodayStr() ? pet.snacksToday : 0}/3)
+                </button>
+              </div>
+            )}
+
+            {lcdScreen === 'GAME' && (
+              <MiniGame
+                onFinish={(bonus, msg) => {
+                  const isWin = bonus >= 25;
+                  setPet((p) => ({
+                    ...p,
+                    energy: Math.max(0, (p.energy ?? 100) - 20),
+                    happiness: Math.min(100, p.happiness + bonus),
+                    coins: p.coins + (isWin ? 15 : 5),
+                    gameWins: (p.gameWins || 0) + (isWin ? 1 : 0),
+                    careStats: { ...p.careStats, sky: (p.careStats?.sky || 1) + (isWin ? 2 : 1) },
+                  }));
+                  triggerAction('HAPPY');
+                  setLcdScreen('PET');
+                  triggerReaction(isWin ? `${msg} +15🪙` : `${msg} +5🪙`);
+                }}
+                onClose={() => setLcdScreen('PET')}
+              />
+            )}
+
+            {lcdScreen === 'SHOP' && (
+              <div style={lcdColStyle}>
+                <div style={{ display: 'flex', gap: '4px', width: '100%' }}>
+                  <button onClick={() => { sfx.beep(); setShopTab('SKIN'); }} style={tabBtnStyle(shopTab === 'SKIN')}>
+                    기기스킨
+                  </button>
+                  <button onClick={() => { sfx.beep(); setShopTab('ITEM'); }} style={tabBtnStyle(shopTab === 'ITEM')}>
+                    아이템
+                  </button>
+                </div>
+
+                {shopTab === 'SKIN' ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', width: '100%' }}>
+                    {SKIN_KEYS.map((key) => {
+                      const info = SHELL_SKINS[key];
+                      const unlocked = pet.unlockedSkins?.includes(key);
+                      const equipped = pet.skin === key;
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => buyOrEquipSkin(key)}
+                          style={{
+                            background: equipped ? '#1e293b' : 'rgba(15,23,42,0.1)',
+                            color: equipped ? '#cbd5c0' : '#0f172a',
+                            border: '1px solid #1e293b',
+                            borderRadius: '3px',
+                            fontSize: '7.5px',
+                            fontWeight: 'bold',
+                            padding: '2px 1px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {info.name.slice(0, 4)} {unlocked ? (equipped ? '✓' : '착용') : `${info.price}🪙`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%' }}>
+                    <button onClick={buyEnergyDrink} style={shopItemStyle}>
+                      ⚡ 드링크 15🪙 (체력+50)
+                    </button>
+                    <button onClick={() => buyAttributeFruit('sky', '하늘')} style={shopItemStyle}>
+                      🍑 하늘열매 30🪙 (+3)
+                    </button>
+                    <button onClick={() => buyAttributeFruit('land', '대지')} style={shopItemStyle}>
+                      🍏 대지열매 30🪙 (+3)
+                    </button>
+                    <button onClick={() => buyAttributeFruit('water', '바다')} style={shopItemStyle}>
+                      🫐 바다열매 30🪙 (+3)
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {lcdScreen === 'STATUS' && (
+              <div style={{ width: '100%', fontSize: '8.5px', fontFamily: 'monospace', color: '#0f172a', fontWeight: 'bold', display: 'flex', flexDirection: 'column', gap: '1.5px' }}>
+                <div style={{ textAlign: 'center', borderBottom: '1px solid #1e293b' }}>
+                  {currentSpec.name} ({Math.floor(pet.ageSeconds / 60)}분)
+                </div>
+                <div>포만: {'■'.repeat(Math.ceil(pet.hunger / 20))}{'□'.repeat(5 - Math.ceil(pet.hunger / 20))}</div>
+                <div>행복: {'■'.repeat(Math.ceil(pet.happiness / 20))}{'□'.repeat(5 - Math.ceil(pet.happiness / 20))}</div>
+                <div>체력: {'■'.repeat(Math.ceil((pet.energy ?? 100) / 20))}{'□'.repeat(5 - Math.ceil((pet.energy ?? 100) / 20))}</div>
+                {canGraduate ? (
+                  <button
+                    onClick={() => startNextGeneration(false)}
+                    style={{ background: '#1e293b', color: '#cbd5c0', border: 'none', borderRadius: '3px', fontSize: '8px', fontWeight: 'bold', padding: '2px', cursor: 'pointer', marginTop: '1px' }}
+                  >
+                    🥚 2세대 알 물려받기
+                  </button>
+                ) : (
+                  <div style={{ fontSize: '7.5px' }}>
+                    승리:{pet.gameWins || 0}회 | 도감:{pet.unlockedSpecies?.length || 1}/23
+                  </div>
+                )}
+              </div>
+            )}
+
+            {lcdScreen === 'PET' && (
+              <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                {reaction && (
+                  <div style={{ fontSize: '8.5px', fontWeight: '900', fontFamily: 'monospace', color: '#0f172a', background: 'rgba(255,255,255,0.65)', padding: '1px 4px', borderRadius: '3px', marginBottom: '2px', textAlign: 'center' }}>
+                    {reaction}
+                  </div>
+                )}
+                <PetSprite
+                  speciesId={pet.speciesId}
+                  direction={direction}
+                  frame={frame}
+                  actionState={actionState}
+                  isSleeping={isSleeping}
+                  isDirty={pet.cleanliness < 35}
+                  lcdMode={true}
+                />
+                {pet.poopCount > 0 && (
+                  <span style={{ position: 'absolute', bottom: 0, right: -14, fontSize: '13px', filter: 'grayscale(100%) contrast(180%)' }}>
+                    {'💩'.repeat(pet.poopCount)}
+                  </span>
+                )}
+              </div>
+            )}
+          </TamagotchiShell>
+        </div>
       </div>
-      <span style={{ width: '20px', textAlign: 'right', fontSize: '7.5px' }}>{safeVal}</span>
+
+      {/* 진화 도감 전체화면 오버레이 모달 */}
+      {showDex && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.78)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <EvolutionDexModal
+            unlockedSpecies={pet.unlockedSpecies}
+            currentSpeciesId={pet.speciesId}
+            careStats={pet.careStats}
+            onClose={() => {
+              sfx.beep();
+              setShowDex(false);
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
+const topBtnStyle = {
+  background: 'rgba(255,255,255,0.12)',
+  border: '1px solid rgba(255,255,255,0.2)',
+  borderRadius: '8px',
+  color: '#f8fafc',
+  fontSize: '11px',
+  fontWeight: '700',
+  padding: '5px 10px',
+  cursor: 'pointer',
+};
+
+const lcdColStyle = {
+  width: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '3px',
+  fontFamily: 'monospace',
+  color: '#0f172a',
+};
+
 const lcdBtnStyle = {
   width: '100%',
-  background: 'rgba(255,255,255,0.45)',
-  border: '1px solid #334155',
+  background: 'rgba(15,23,42,0.12)',
+  border: '1.5px solid #1e293b',
   borderRadius: '4px',
   padding: '3px 4px',
   fontSize: '8.5px',
+  fontWeight: 'bold',
   color: '#0f172a',
   cursor: 'pointer',
 };
 
-const shopGridItemStyle = {
-  width: '100%',
-  background: 'rgba(255,255,255,0.5)',
-  border: '1px solid #334155',
-  borderRadius: '3px',
-  padding: '2px 2px',
-  fontSize: '7.5px',
-  color: '#0f172a',
-  cursor: 'pointer',
-  textAlign: 'center',
-};
-
-const mobileQuickBtnStyle = {
+const tabBtnStyle = (active) => ({
   flex: 1,
-  background: 'rgba(255, 255, 255, 0.9)',
-  border: '1.5px solid #bae6fd',
-  borderRadius: '14px',
-  padding: '10px 6px',
-  fontSize: '12px',
-  fontWeight: '800',
-  color: '#0369a1',
-  boxShadow: '0 4px 10px rgba(15, 23, 42, 0.08)',
+  background: active ? '#1e293b' : 'transparent',
+  color: active ? '#cbd5c0' : '#0f172a',
+  border: '1px solid #1e293b',
+  fontSize: '8px',
+  fontWeight: 'bold',
   cursor: 'pointer',
+});
+
+const shopItemStyle = {
+  width: '100%',
+  background: 'rgba(15,23,42,0.1)',
+  border: '1px solid #1e293b',
+  borderRadius: '3px',
+  padding: '1.5px 3px',
+  fontSize: '7.5px',
+  fontWeight: 'bold',
+  color: '#0f172a',
+  cursor: 'pointer',
+  textAlign: 'left',
 };
