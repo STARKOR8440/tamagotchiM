@@ -1,9 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import PetSprite from './PetSprite';
 import MiniGame from './MiniGame';
 import TamagotchiShell, { SHELL_SKINS } from './TamagotchiShell';
 import EvolutionDexModal from './EvolutionDexModal';
-import { SPECIES, checkEvolutionStatus, evolveCrossRandom } from './evolutionTree';
+import {
+  SPECIES,
+  checkEvolutionStatus,
+  evolveCrossRandom,
+  reincarnateAdult,
+} from './evolutionTree';
 import { sfx } from './sound';
 
 const STORAGE_KEY = 'mobile_tamagotchi_pwa_v1';
@@ -60,15 +65,18 @@ export default function App() {
 
   const [lcdScreen, setLcdScreen] = useState('PET');
   const [shopTab, setShopTab] = useState('SKIN');
+  const [skinPage, setSkinPage] = useState(0);
   const [selectedMenuIdx, setSelectedMenuIdx] = useState(0);
   const [showDex, setShowDex] = useState(false);
-  const [showGuide, setShowGuide] = useState(false);
   const [actionState, setActionState] = useState('IDLE');
   const [isMuted, setIsMuted] = useState(false);
 
   const [direction, setDirection] = useState(1);
   const [frame, setFrame] = useState(0);
   const [reaction, setReaction] = useState('');
+
+  const lastHintAlertRef = useRef(0);
+  const cheatSeqRef = useRef([]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...pet, lastUpdated: Date.now() }));
@@ -86,14 +94,17 @@ export default function App() {
 
         const evoStatus = checkEvolutionStatus({ ...prev, ageSeconds: nextAge });
         if (evoStatus.ready) {
-          nextSpeciesId = evolveCrossRandom(currentSpec.stage, prev.careStats);
+          nextSpeciesId = evolveCrossRandom(currentSpec.stage, prev.careStats, prev);
           const evolvedSpec = SPECIES[nextSpeciesId];
           if (!nextUnlocked.includes(nextSpeciesId)) {
             nextUnlocked = [...nextUnlocked, nextSpeciesId];
           }
           sfx.evolve();
           triggerAction('HAPPY');
-          triggerReaction(`${evolvedSpec.name}로 진화! ✨`);
+          triggerReaction(`${evolvedSpec.name} 진화! ✨`);
+        } else if (evoStatus.reason && Date.now() - lastHintAlertRef.current > 45000) {
+          triggerReaction(evoStatus.reason);
+          lastHintAlertRef.current = Date.now();
         }
 
         const nextEnergy = nextAge % 30 === 0 ? Math.min(100, (prev.energy ?? 100) + 1) : (prev.energy ?? 100);
@@ -159,6 +170,92 @@ export default function App() {
     if (!nextMuted) sfx.beep();
   };
 
+  // 히든 치트 커맨드 3종
+  // 1) A-A-B-B-C : +500코인 & 풀충전
+  // 2) C-C-A-B-B : 다음 단계 진화 (최종 성체일 경우 다른 성체로 환생 변신!)
+  // 3) B-B-A-C-C : 아이템 테스트 부스트 (+2000코인 & 3대 속성 +5)
+  const recordCheatInput = (btn) => {
+    const nextSeq = [...cheatSeqRef.current, btn].slice(-5);
+    cheatSeqRef.current = nextSeq;
+    const code = nextSeq.join('');
+
+    if (code === 'AABBC') {
+      cheatSeqRef.current = [];
+      sfx.evolve();
+      triggerAction('HAPPY');
+      setPet((p) => ({
+        ...p,
+        coins: (p.coins || 0) + 500,
+        energy: 100,
+      }));
+      setLcdScreen('PET');
+      setShowDex(false);
+      triggerReaction('치트 발동! +500🪙 & 풀충전 🎉');
+      return true;
+    }
+
+    if (code === 'BBACC') {
+      cheatSeqRef.current = [];
+      sfx.win();
+      triggerAction('HAPPY');
+      setPet((p) => ({
+        ...p,
+        coins: (p.coins || 0) + 2000,
+        energy: 100,
+        careStats: {
+          sky: (p.careStats?.sky || 1) + 5,
+          land: (p.careStats?.land || 1) + 5,
+          water: (p.careStats?.water || 1) + 5,
+        },
+      }));
+      setLcdScreen('PET');
+      setShowDex(false);
+      triggerReaction('아이템 치트! +2000🪙 & 올스탯+5 🔮');
+      return true;
+    }
+
+    if (code === 'CCABB') {
+      cheatSeqRef.current = [];
+      const currentSpec = SPECIES[pet.speciesId] || SPECIES.EGG;
+
+      const nextSpeciesId =
+        currentSpec.stage === 'ADULT'
+          ? reincarnateAdult(pet.speciesId, pet.careStats, pet.unlockedSpecies)
+          : evolveCrossRandom(currentSpec.stage, pet.careStats, {
+              ...pet,
+              gameWins: Math.max(5, pet.gameWins || 0),
+              hunger: 100,
+              happiness: 100,
+            });
+
+      const evolvedSpec = SPECIES[nextSpeciesId];
+      sfx.evolve();
+      triggerAction('HAPPY');
+      setPet((p) => ({
+        ...p,
+        speciesId: nextSpeciesId,
+        hunger: 100,
+        happiness: 100,
+        cleanliness: 100,
+        energy: 100,
+        poopCount: 0,
+        unlockedSpecies: p.unlockedSpecies?.includes(nextSpeciesId)
+          ? p.unlockedSpecies
+          : [...(p.unlockedSpecies || ['EGG']), nextSpeciesId],
+      }));
+      setLcdScreen('PET');
+      setShowDex(false);
+      triggerReaction(
+        currentSpec.stage === 'ADULT'
+          ? `성체 환생! ${evolvedSpec.name} 🔮`
+          : `치트 진화! ${evolvedSpec.name} ✨`
+      );
+      return true;
+    }
+
+    return false;
+  };
+
   const startNextGeneration = (isHardReset = false) => {
     sfx.confirm();
     setPet((prev) => ({
@@ -170,7 +267,7 @@ export default function App() {
     }));
     setLcdScreen('PET');
     setShowDex(false);
-    triggerReaction(isHardReset ? '새 알 도착! 🥚' : '독립 완료! 2세대 알 도착 🥚');
+    triggerReaction(isHardReset ? '처음부터 새 알! 🥚' : '독립 완료! 2세대 알 도착 🥚');
   };
 
   const feedPet = (foodType) => {
@@ -182,7 +279,7 @@ export default function App() {
       if (now < (pet.digestUntil || 0)) {
         const remainMin = Math.ceil((pet.digestUntil - now) / 60000);
         sfx.beep();
-        triggerReaction(`배불러! ${remainMin}분 뒤 소화 🙅`);
+        triggerReaction(`배불러! ${remainMin}분 뒤 소화됨 🙅`);
         setLcdScreen('PET');
         return;
       }
@@ -199,7 +296,7 @@ export default function App() {
     } else {
       if (currentSnacks >= 3) {
         sfx.beep();
-        triggerReaction('오늘 간식은 끝! 🦷');
+        triggerReaction('오늘 간식은 끝! 충치 조심 🦷');
         setLcdScreen('PET');
         return;
       }
@@ -231,7 +328,7 @@ export default function App() {
 
     if (pet.coins < skinInfo.price) {
       sfx.beep();
-      triggerReaction(`코인 부족! (${skinInfo.price}🪙)`);
+      triggerReaction(`코인 부족! (${skinInfo.price}🪙 필요)`);
       return;
     }
 
@@ -242,14 +339,14 @@ export default function App() {
       skin: skinKey,
       unlockedSkins: [...(p.unlockedSkins || ['SODA_BLUE']), skinKey],
     }));
-    triggerReaction(`${skinInfo.name} 해금! 🎉`);
+    triggerReaction(`${skinInfo.name} 해금 완료! 🎉`);
   };
 
   const buyEnergyDrink = () => {
     const price = 15;
     if ((pet.energy ?? 100) >= 100) {
       sfx.beep();
-      triggerReaction('체력이 이미 가득해요! ⚡');
+      triggerReaction('이미 체력이 가득 찼어요! ⚡');
       return;
     }
     if (pet.coins < price) {
@@ -289,6 +386,37 @@ export default function App() {
     setLcdScreen('PET');
   };
 
+  const buyReincarnationOrb = () => {
+    const price = 1000;
+    const currentSpec = SPECIES[pet.speciesId] || SPECIES.EGG;
+    if (currentSpec.stage !== 'ADULT') {
+      sfx.beep();
+      triggerReaction('최종 성체만 사용할 수 있어요! 🔮');
+      return;
+    }
+    if (pet.coins < price) {
+      sfx.beep();
+      triggerReaction('1000🪙가 필요해요!');
+      return;
+    }
+
+    const nextSpeciesId = reincarnateAdult(pet.speciesId, pet.careStats, pet.unlockedSpecies);
+    const nextSpec = SPECIES[nextSpeciesId];
+
+    sfx.evolve();
+    triggerAction('HAPPY');
+    setPet((p) => ({
+      ...p,
+      coins: p.coins - price,
+      speciesId: nextSpeciesId,
+      unlockedSpecies: p.unlockedSpecies?.includes(nextSpeciesId)
+        ? p.unlockedSpecies
+        : [...(p.unlockedSpecies || ['EGG']), nextSpeciesId],
+    }));
+    setLcdScreen('PET');
+    triggerReaction(`${nextSpec.name}(으)로 환생 완료! 🔮✨`);
+  };
+
   const executeMenuAction = (type) => {
     sfx.confirm();
     if (type === 'DEX') {
@@ -316,7 +444,7 @@ export default function App() {
     } else if (type === 'PLAY') {
       if ((pet.energy ?? 100) < 20) {
         sfx.beep();
-        triggerReaction('체력 부족! 밥/드링크 필요 ⚡');
+        triggerReaction('체력 부족! 밥이나 드링크 필요 ⚡');
         return;
       }
       setLcdScreen('GAME');
@@ -345,6 +473,7 @@ export default function App() {
   };
 
   const handlePressA = () => {
+    if (recordCheatInput('A')) return;
     sfx.beep();
     if (lcdScreen === 'SHOP') {
       setShopTab((prev) => (prev === 'SKIN' ? 'ITEM' : 'SKIN'));
@@ -354,6 +483,7 @@ export default function App() {
   };
 
   const handlePressB = () => {
+    if (recordCheatInput('B')) return;
     if (lcdScreen === 'SHOP') {
       sfx.beep();
       setShopTab((prev) => (prev === 'SKIN' ? 'ITEM' : 'SKIN'));
@@ -363,6 +493,7 @@ export default function App() {
   };
 
   const handlePressC = () => {
+    if (recordCheatInput('C')) return;
     sfx.beep();
     setLcdScreen('PET');
   };
@@ -371,6 +502,7 @@ export default function App() {
   const currentHour = new Date().getHours();
   const isSleeping = currentHour >= 23 || currentHour < 6;
   const canGraduate = currentSpec.stage === 'ADULT' && (pet.adultSeconds || 0) >= 86400;
+  const pagedSkins = SKIN_KEYS.slice(skinPage * 4, skinPage * 4 + 4);
 
   return (
     <div
@@ -387,7 +519,7 @@ export default function App() {
         background: 'linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%)',
       }}
     >
-      {/* 상단 유틸리티 바 (밝은 배경 위에서 선명하게 보이도록 다크 텍스트 + 카드 스타일 적용) */}
+      {/* 상단 유틸리티 바 */}
       <div
         style={{
           width: '100%',
@@ -418,15 +550,6 @@ export default function App() {
         </div>
 
         <div style={{ display: 'flex', gap: '6px' }}>
-          <button
-            onClick={() => {
-              sfx.beep();
-              setShowGuide(true);
-            }}
-            style={topBtnStyle}
-          >
-            ? 도움말
-          </button>
           <button onClick={toggleMute} style={topBtnStyle} title="소리 켜기/끄기">
             {isMuted ? '🔇' : '🔊'}
           </button>
@@ -474,8 +597,8 @@ export default function App() {
             }}
           >
             {lcdScreen === 'FOOD' && (
-              <div style={lcdColStyle}>
-                <div style={{ fontSize: '9px', fontWeight: '900' }}>[식사 및 간식]</div>
+              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '4px', color: '#0f172a' }}>
+                <div style={{ fontSize: '9.5px', textAlign: 'center', fontWeight: 'bold' }}>식사 및 간식</div>
                 <button onClick={() => feedPet('RICE')} style={lcdBtnStyle}>
                   🍙 주먹밥 (+체력15)
                 </button>
@@ -487,74 +610,127 @@ export default function App() {
 
             {lcdScreen === 'GAME' && (
               <MiniGame
-                onFinish={(bonus, msg) => {
-                  const isWin = bonus >= 25;
+                onFinish={(bonus, msg, customCoins) => {
+                  const isWin = bonus >= 20;
+                  const earnedCoins = customCoins ?? (isWin ? 15 : 5);
                   setPet((p) => ({
                     ...p,
                     energy: Math.max(0, (p.energy ?? 100) - 20),
                     happiness: Math.min(100, p.happiness + bonus),
-                    coins: p.coins + (isWin ? 15 : 5),
+                    coins: p.coins + earnedCoins,
                     gameWins: (p.gameWins || 0) + (isWin ? 1 : 0),
                     careStats: { ...p.careStats, sky: (p.careStats?.sky || 1) + (isWin ? 2 : 1) },
                   }));
                   triggerAction('HAPPY');
                   setLcdScreen('PET');
-                  triggerReaction(isWin ? `${msg} +15🪙` : `${msg} +5🪙`);
+                  triggerReaction(`${msg} +${earnedCoins}🪙`);
                 }}
                 onClose={() => setLcdScreen('PET')}
               />
             )}
 
             {lcdScreen === 'SHOP' && (
-              <div style={lcdColStyle}>
-                <div style={{ display: 'flex', gap: '4px', width: '100%' }}>
-                  <button onClick={() => { sfx.beep(); setShopTab('SKIN'); }} style={tabBtnStyle(shopTab === 'SKIN')}>
-                    기기스킨
+              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '2px', color: '#0f172a' }}>
+                <div style={{ display: 'flex', gap: '3px', width: '100%' }}>
+                  <button
+                    onClick={() => { sfx.beep(); setShopTab('SKIN'); }}
+                    style={{
+                      flex: 1,
+                      background: shopTab === 'SKIN' ? '#1e293b' : 'rgba(15,23,42,0.08)',
+                      color: shopTab === 'SKIN' ? '#f8fafc' : '#0f172a',
+                      border: '1px solid #1e293b',
+                      borderRadius: '3px',
+                      fontSize: '8.5px',
+                      padding: '1px 0',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    스킨(8)
                   </button>
-                  <button onClick={() => { sfx.beep(); setShopTab('ITEM'); }} style={tabBtnStyle(shopTab === 'ITEM')}>
-                    아이템
+                  <button
+                    onClick={() => { sfx.beep(); setShopTab('ITEM'); }}
+                    style={{
+                      flex: 1,
+                      background: shopTab === 'ITEM' ? '#1e293b' : 'rgba(15,23,42,0.08)',
+                      color: shopTab === 'ITEM' ? '#f8fafc' : '#0f172a',
+                      border: '1px solid #1e293b',
+                      borderRadius: '3px',
+                      fontSize: '8.5px',
+                      padding: '1px 0',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    아이템(5)
                   </button>
                 </div>
 
                 {shopTab === 'SKIN' ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', width: '100%' }}>
-                    {SKIN_KEYS.map((key) => {
-                      const info = SHELL_SKINS[key];
-                      const unlocked = pet.unlockedSkins?.includes(key);
-                      const equipped = pet.skin === key;
-                      return (
-                        <button
-                          key={key}
-                          onClick={() => buyOrEquipSkin(key)}
-                          style={{
-                            background: equipped ? '#1e293b' : 'rgba(15,23,42,0.1)',
-                            color: equipped ? '#cbd5c0' : '#0f172a',
-                            border: '1px solid #1e293b',
-                            borderRadius: '3px',
-                            fontSize: '7.5px',
-                            fontWeight: 'bold',
-                            padding: '2px 1px',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {info.name.slice(0, 4)} {unlocked ? (equipped ? '✓' : '착용') : `${info.price}🪙`}
-                        </button>
-                      );
-                    })}
+                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', width: '100%' }}>
+                      {pagedSkins.map((key) => {
+                        const info = SHELL_SKINS[key];
+                        const unlocked = pet.unlockedSkins?.includes(key);
+                        const equipped = pet.skin === key;
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => buyOrEquipSkin(key)}
+                            style={{
+                              background: equipped ? '#1e293b' : 'rgba(255,255,255,0.45)',
+                              color: equipped ? '#f8fafc' : '#0f172a',
+                              border: '1px solid #334155',
+                              borderRadius: '3px',
+                              fontSize: '7.8px',
+                              padding: '2px 1px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {info.name.slice(0, 4)} {unlocked ? (equipped ? '✓' : '착용') : `${info.price}🪙`}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      onClick={() => { sfx.beep(); setSkinPage((p) => (p === 0 ? 1 : 0)); }}
+                      style={{
+                        width: '100%',
+                        background: 'rgba(15,23,42,0.14)',
+                        border: '1px solid #334155',
+                        borderRadius: '3px',
+                        fontSize: '8px',
+                        padding: '1px',
+                        cursor: 'pointer',
+                        color: '#0f172a',
+                      }}
+                    >
+                      {skinPage === 0 ? '다음 스킨 ▶ (1/2)' : '◀ 이전 스킨 (2/2)'}
+                    </button>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%' }}>
-                    <button onClick={buyEnergyDrink} style={shopItemStyle}>
-                      ⚡ 드링크 15🪙 (체력+50)
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', width: '100%' }}>
+                    <button onClick={buyEnergyDrink} style={shopGridItemStyle}>
+                      ⚡드링크 15🪙
                     </button>
-                    <button onClick={() => buyAttributeFruit('sky', '하늘')} style={shopItemStyle}>
-                      🍑 하늘열매 30🪙 (+3)
+                    <button onClick={() => buyAttributeFruit('sky', '하늘')} style={shopGridItemStyle}>
+                      🍑하늘 30🪙
                     </button>
-                    <button onClick={() => buyAttributeFruit('land', '대지')} style={shopItemStyle}>
-                      🍏 대지열매 30🪙 (+3)
+                    <button onClick={() => buyAttributeFruit('land', '대지')} style={shopGridItemStyle}>
+                      🍏대지 30🪙
                     </button>
-                    <button onClick={() => buyAttributeFruit('water', '바다')} style={shopItemStyle}>
-                      🫐 바다열매 30🪙 (+3)
+                    <button onClick={() => buyAttributeFruit('water', '바다')} style={shopGridItemStyle}>
+                      🫐바다 30🪙
+                    </button>
+                    <button
+                      onClick={buyReincarnationOrb}
+                      style={{
+                        ...shopGridItemStyle,
+                        gridColumn: '1 / -1',
+                        background: 'rgba(254, 240, 138, 0.75)',
+                        fontWeight: 'bold',
+                        textAlign: 'center',
+                      }}
+                    >
+                      🔮 성체 환생구슬 1000🪙
                     </button>
                   </div>
                 )}
@@ -562,23 +738,40 @@ export default function App() {
             )}
 
             {lcdScreen === 'STATUS' && (
-              <div style={{ width: '100%', fontSize: '8.5px', fontFamily: 'monospace', color: '#0f172a', fontWeight: 'bold', display: 'flex', flexDirection: 'column', gap: '1.5px' }}>
-                <div style={{ textAlign: 'center', borderBottom: '1px solid #1e293b' }}>
+              <div
+                style={{
+                  width: '100%',
+                  fontSize: '8.5px',
+                  color: '#0f172a',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '2.5px',
+                }}
+              >
+                <div style={{ textAlign: 'center', borderBottom: '1px solid #334155', paddingBottom: '1px' }}>
                   {currentSpec.name} ({Math.floor(pet.ageSeconds / 60)}분)
                 </div>
-                <div>포만: {'■'.repeat(Math.ceil(pet.hunger / 20))}{'□'.repeat(5 - Math.ceil(pet.hunger / 20))}</div>
-                <div>행복: {'■'.repeat(Math.ceil(pet.happiness / 20))}{'□'.repeat(5 - Math.ceil(pet.happiness / 20))}</div>
-                <div>체력: {'■'.repeat(Math.ceil((pet.energy ?? 100) / 20))}{'□'.repeat(5 - Math.ceil((pet.energy ?? 100) / 20))}</div>
+                <StatGauge label="포만" value={pet.hunger} />
+                <StatGauge label="행복" value={pet.happiness} />
+                <StatGauge label="체력" value={pet.energy ?? 100} />
                 {canGraduate ? (
                   <button
                     onClick={() => startNextGeneration(false)}
-                    style={{ background: '#1e293b', color: '#cbd5c0', border: 'none', borderRadius: '3px', fontSize: '8px', fontWeight: 'bold', padding: '2px', cursor: 'pointer', marginTop: '1px' }}
+                    style={{
+                      background: '#1e293b',
+                      color: '#f8fafc',
+                      border: 'none',
+                      borderRadius: '3px',
+                      fontSize: '8px',
+                      padding: '2px',
+                      cursor: 'pointer',
+                    }}
                   >
                     🥚 2세대 알 물려받기
                   </button>
                 ) : (
-                  <div style={{ fontSize: '7.5px' }}>
-                    승리:{pet.gameWins || 0}회 | 도감:{pet.unlockedSpecies?.length || 1}/23
+                  <div style={{ fontSize: '8px', textAlign: 'center', opacity: 0.85 }}>
+                    승리 {pet.gameWins || 0}회 · 도감 {pet.unlockedSpecies?.length || 1}/35
                   </div>
                 )}
               </div>
@@ -587,7 +780,18 @@ export default function App() {
             {lcdScreen === 'PET' && (
               <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 {reaction && (
-                  <div style={{ fontSize: '8.5px', fontWeight: '900', fontFamily: 'monospace', color: '#0f172a', background: 'rgba(255,255,255,0.65)', padding: '1px 4px', borderRadius: '3px', marginBottom: '2px', textAlign: 'center' }}>
+                  <div
+                    style={{
+                      fontSize: '8.5px',
+                      color: '#0f172a',
+                      background: 'rgba(255,255,255,0.72)',
+                      border: '1px solid rgba(15,23,42,0.2)',
+                      padding: '1px 5px',
+                      borderRadius: '4px',
+                      marginBottom: '1px',
+                      textAlign: 'center',
+                    }}
+                  >
                     {reaction}
                   </div>
                 )}
@@ -601,7 +805,15 @@ export default function App() {
                   lcdMode={true}
                 />
                 {pet.poopCount > 0 && (
-                  <span style={{ position: 'absolute', bottom: 0, right: -14, fontSize: '13px', filter: 'grayscale(100%) contrast(180%)' }}>
+                  <span
+                    style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      right: -12,
+                      fontSize: '12px',
+                      filter: 'grayscale(100%) contrast(180%)',
+                    }}
+                  >
                     {'💩'.repeat(pet.poopCount)}
                   </span>
                 )}
@@ -610,97 +822,6 @@ export default function App() {
           </TamagotchiShell>
         </div>
       </div>
-
-      {/* 도움말 모달 */}
-      {showGuide && (
-        <div
-          onClick={() => {
-            sfx.beep();
-            setShowGuide(false);
-          }}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15, 23, 42, 0.72)',
-            backdropFilter: 'blur(4px)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '16px',
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: '100%',
-              maxWidth: '360px',
-              background: '#ffffff',
-              borderRadius: '20px',
-              border: '3px solid #38bdf8',
-              padding: '18px',
-              color: '#0f172a',
-              fontSize: '12.5px',
-              lineHeight: 1.55,
-              boxShadow: '0 16px 36px rgba(0,0,0,0.45)',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <strong style={{ fontSize: '15px', color: '#0369a1' }}>🐣 다마고치 사용 가이드</strong>
-              <button
-                onClick={() => {
-                  sfx.beep();
-                  setShowGuide(false);
-                }}
-                style={{
-                  background: '#ef4444',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '4px 10px',
-                  fontSize: '11px',
-                  fontWeight: '800',
-                  cursor: 'pointer',
-                }}
-              >
-                ✕ 닫기
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div>
-                <strong>🎮 기본 조작</strong>
-                <div style={{ color: '#475569' }}>
-                  • <b>A</b>: 메뉴 이동 / <b>B</b>: 선택·확인 / <b>C</b>: 취소·복귀<br />
-                  • 액정 상단 아이콘을 직접 터치해도 바로 실행됩니다.
-                </div>
-              </div>
-
-              <div>
-                <strong>🍖 돌봄 & 코인 획득</strong>
-                <div style={{ color: '#475569' }}>
-                  • <b>주먹밥</b>: 포만감+25, 체력+15 (15분 소화 쿨타임)<br />
-                  • <b>케이크</b>: 행복+15, 하늘 속성+1 (하루 3회 제한)<br />
-                  • <b>놀이(게임)</b>: 체력 20 소모, 승리 시 <b>+15🪙</b><br />
-                  • <b>청소</b>: 배설물(💩) 제거 시 개당 <b>+10🪙</b>
-                </div>
-              </div>
-
-              <div>
-                <strong>⚡ 체력 & 진화 규칙</strong>
-                <div style={{ color: '#475569' }}>
-                  • 체력은 <b>30초마다 +1 자동 회복</b>되며 상점 드링크(+50)로 즉시 충전할 수 있습니다.<br />
-                  • 놀이(하늘) · 식사(대지) · 청소(바다) 비율에 따라 12종 성체로 교차 진화합니다.
-                </div>
-              </div>
-
-              <div style={{ background: '#f0f9ff', padding: '8px 10px', borderRadius: '10px', fontSize: '11.5px', color: '#0369a1' }}>
-                💡 브라우저 메뉴에서 <b>[홈 화면에 추가]</b>를 누르면 앱처럼 전체 화면으로 실행됩니다.
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 진화 도감 전체화면 오버레이 모달 */}
       {showDex && (
@@ -731,6 +852,35 @@ export default function App() {
   );
 }
 
+function StatGauge({ label, value }) {
+  const safeVal = Math.max(0, Math.min(100, value));
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', width: '100%' }}>
+      <span style={{ width: '24px', fontSize: '8px' }}>{label}</span>
+      <div
+        style={{
+          flex: 1,
+          height: '6px',
+          border: '1px solid #1e293b',
+          borderRadius: '2px',
+          background: 'rgba(255,255,255,0.35)',
+          padding: '0.5px',
+        }}
+      >
+        <div
+          style={{
+            width: `${safeVal}%`,
+            height: '100%',
+            background: '#1e293b',
+            transition: 'width 0.2s ease',
+          }}
+        />
+      </div>
+      <span style={{ width: '20px', textAlign: 'right', fontSize: '7.5px' }}>{safeVal}</span>
+    </div>
+  );
+}
+
 const topBtnStyle = {
   background: '#ffffff',
   border: '1.5px solid #cbd5e1',
@@ -743,47 +893,25 @@ const topBtnStyle = {
   boxShadow: '0 2px 5px rgba(15, 23, 42, 0.06)',
 };
 
-const lcdColStyle = {
-  width: '100%',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: '3px',
-  fontFamily: 'monospace',
-  color: '#0f172a',
-};
-
 const lcdBtnStyle = {
   width: '100%',
-  background: 'rgba(15,23,42,0.12)',
-  border: '1.5px solid #1e293b',
+  background: 'rgba(255,255,255,0.45)',
+  border: '1px solid #334155',
   borderRadius: '4px',
   padding: '3px 4px',
   fontSize: '8.5px',
-  fontWeight: 'bold',
   color: '#0f172a',
   cursor: 'pointer',
 };
 
-const tabBtnStyle = (active) => ({
-  flex: 1,
-  background: active ? '#1e293b' : 'transparent',
-  color: active ? '#cbd5c0' : '#0f172a',
-  border: '1px solid #1e293b',
-  fontSize: '8px',
-  fontWeight: 'bold',
-  cursor: 'pointer',
-});
-
-const shopItemStyle = {
+const shopGridItemStyle = {
   width: '100%',
-  background: 'rgba(15,23,42,0.1)',
-  border: '1px solid #1e293b',
+  background: 'rgba(255,255,255,0.5)',
+  border: '1px solid #334155',
   borderRadius: '3px',
-  padding: '1.5px 3px',
+  padding: '2px 2px',
   fontSize: '7.5px',
-  fontWeight: 'bold',
   color: '#0f172a',
   cursor: 'pointer',
-  textAlign: 'left',
+  textAlign: 'center',
 };
