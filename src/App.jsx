@@ -62,6 +62,7 @@ export default function App() {
   const [shopTab, setShopTab] = useState('SKIN');
   const [selectedMenuIdx, setSelectedMenuIdx] = useState(0);
   const [showDex, setShowDex] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [actionState, setActionState] = useState('IDLE');
   const [isMuted, setIsMuted] = useState(false);
 
@@ -404,9 +405,18 @@ export default function App() {
           <span>{currentSpec.name}</span>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button
+            onClick={() => {
+              sfx.beep();
+              setShowGuide(true);
+            }}
+            style={topBtnStyle}
+          >
+            ? 도움말
+          </button>
           <button onClick={toggleMute} style={topBtnStyle}>
-            {isMuted ? '🔇 음소거' : '🔊 효과음'}
+            {isMuted ? '🔇' : '🔊'}
           </button>
           <button
             onClick={() => {
@@ -588,6 +598,97 @@ export default function App() {
           </TamagotchiShell>
         </div>
       </div>
+
+      {/* 도움말 모달 */}
+      {showGuide && (
+        <div
+          onClick={() => {
+            sfx.beep();
+            setShowGuide(false);
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.78)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '360px',
+              background: '#ffffff',
+              borderRadius: '20px',
+              border: '3px solid #38bdf8',
+              padding: '18px',
+              color: '#0f172a',
+              fontSize: '12.5px',
+              lineHeight: 1.55,
+              boxShadow: '0 16px 36px rgba(0,0,0,0.45)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <strong style={{ fontSize: '15px', color: '#0369a1' }}>🐣 다마고치 사용 가이드</strong>
+              <button
+                onClick={() => {
+                  sfx.beep();
+                  setShowGuide(false);
+                }}
+                style={{
+                  background: '#ef4444',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                }}
+              >
+                ✕ 닫기
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div>
+                <strong>🎮 기본 조작</strong>
+                <div style={{ color: '#475569' }}>
+                  • <b>A</b>: 메뉴 이동 / <b>B</b>: 선택·확인 / <b>C</b>: 취소·복귀<br />
+                  • 액정 상단 아이콘을 직접 터치해도 바로 실행됩니다.
+                </div>
+              </div>
+
+              <div>
+                <strong>🍖 돌봄 & 코인 획득</strong>
+                <div style={{ color: '#475569' }}>
+                  • <b>주먹밥</b>: 포만감+25, 체력+15 (15분 소화 쿨타임)<br />
+                  • <b>케이크</b>: 행복+15, 하늘 속성+1 (하루 3회 제한)<br />
+                  • <b>놀이(게임)</b>: 체력 20 소모, 승리 시 <b>+15🪙</b><br />
+                  • <b>청소</b>: 배설물(💩) 제거 시 개당 <b>+10🪙</b>
+                </div>
+              </div>
+
+              <div>
+                <strong>⚡ 체력 & 진화 규칙</strong>
+                <div style={{ color: '#475569' }}>
+                  • 체력은 <b>30초마다 +1 자동 회복</b>되며 상점 드링크(+50)로 즉시 충전할 수 있습니다.<br />
+                  • 놀이(하늘) · 식사(대지) · 청소(바다) 비율에 따라 12종 성체로 교차 진화합니다.
+                </div>
+              </div>
+
+              <div style={{ background: '#f0f9ff', padding: '8px 10px', borderRadius: '10px', fontSize: '11.5px', color: '#0369a1' }}>
+                💡 브라우저 메뉴에서 <b>[홈 화면에 추가]</b>를 누르면 앱처럼 전체 화면으로 실행됩니다.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 진화 도감 전체화면 오버레이 모달 */}
       {showDex && (
