@@ -814,7 +814,7 @@ export default function App() {
                   actionState={actionState}
                   isSleeping={isSleeping}
                   isDirty={pet.cleanliness < 35}
-                  lcdMode={true}
+                  lcdMode={false}
                 />
                 {pet.poopCount > 0 && (
                   <span
