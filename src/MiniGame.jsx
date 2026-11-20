@@ -1,339 +1,249 @@
 import React, { useState, useEffect } from 'react';
 import { sfx } from './sound';
 
-const RPS_OPTIONS = [
-  { id: 'SCISSORS', label: '✌️', beats: 'PAPER' },
-  { id: 'ROCK', label: '✊', beats: 'SCISSORS' },
-  { id: 'PAPER', label: '🖐️', beats: 'ROCK' },
-];
+const GAME_TYPES = ['CATCH', 'HIGHLOW', 'DODGE'];
 
-export default function MiniGame({ onFinish }) {
-  const [mode, setMode] = useState('RPS'); // 'RPS' | 'LOOK' | 'TIMING'
-  const [resultText, setResultText] = useState('가위바위보!');
-  const [locked, setLocked] = useState(false);
+export default function MiniGame({ winStreak = 0, onFinish, onClose }) {
+  const [gameType] = useState(
+    () => GAME_TYPES[Math.floor(Math.random() * GAME_TYPES.length)]
+  );
 
-  // 타이밍 캐치 상태 (0 ~ 100 왕복)
+  // 1) 퍼펙트 캐치 상태
   const [cursorPos, setCursorPos] = useState(0);
   const [cursorDir, setCursorDir] = useState(1);
 
+  // 2) 하이로우 숫자 예측 상태
+  const [baseNum] = useState(() => Math.floor(Math.random() * 7) + 2); // 2~8
+
+  // 3) 좌우 피하기 상태
+  const [playerLane, setPlayerLane] = useState(1); // 0:좌, 1:중, 2:우
+  const [meteorLane] = useState(() => Math.floor(Math.random() * 3));
+  const [meteorY, setMeteorY] = useState(0);
+
   useEffect(() => {
-    if (mode !== 'TIMING' || locked) return;
-    const timer = setInterval(() => {
-      setCursorPos((prev) => {
-        let next = prev + cursorDir * 6.5;
-        if (next >= 100) {
-          next = 100;
-          setCursorDir(-1);
-        } else if (next <= 0) {
-          next = 0;
-          setCursorDir(1);
-        }
-        return next;
-      });
-    }, 45);
-    return () => clearInterval(timer);
-  }, [mode, locked, cursorDir]);
+    if (gameType === 'CATCH') {
+      const t = setInterval(() => {
+        setCursorPos((p) => {
+          if (p >= 90) {
+            setCursorDir(-1);
+            return 85;
+          }
+          if (p <= 0) {
+            setCursorDir(1);
+            return 5;
+          }
+          return p + cursorDir * 10;
+        });
+      }, 65);
+      return () => clearInterval(t);
+    }
 
-  const switchMode = (nextMode, title) => {
-    if (locked) return;
-    sfx.beep();
-    setMode(nextMode);
-    setResultText(title);
-    setCursorPos(0);
-    setCursorDir(1);
-  };
+    if (gameType === 'DODGE') {
+      const t = setInterval(() => {
+        setMeteorY((y) => {
+          if (y >= 4) {
+            clearInterval(t);
+            const survived = playerLane !== meteorLane;
+            finishGame(survived, survived ? '회피 성공!' : '충돌 앗!');
+            return 4;
+          }
+          return y + 1;
+        });
+      }, 280);
+      return () => clearInterval(t);
+    }
+  }, [gameType, cursorDir, playerLane, meteorLane]);
 
-  const playRps = (userChoice) => {
-    if (locked) return;
-    setLocked(true);
-    sfx.beep();
-
-    const petChoice = RPS_OPTIONS[Math.floor(Math.random() * RPS_OPTIONS.length)];
-    if (userChoice.id === petChoice.id) {
-      setResultText(`펫:${petChoice.label} 비김!`);
-      setTimeout(() => onFinish(10, '비겼어! 🤝', 5), 850);
-    } else if (userChoice.beats === petChoice.id) {
+  const finishGame = (isWin, label) => {
+    if (isWin) {
       sfx.win();
-      setResultText(`펫:${petChoice.label} 승리!`);
-      setTimeout(() => onFinish(25, '내가 졌다! 🎉', 15), 850);
+      const nextStreak = winStreak + 1;
+      const isStreakBonus = nextStreak >= 3;
+      const coins = isStreakBonus ? 30 : 15;
+      const bonusWins = isStreakBonus ? 2 : 1;
+      onFinish(
+        25,
+        isStreakBonus ? `${label} (${nextStreak}연승! 승+2)` : label,
+        coins,
+        bonusWins,
+        true
+      );
     } else {
-      setResultText(`펫:${petChoice.label} 패배!`);
-      setTimeout(() => onFinish(10, '내가 이겼다! 🏆', 5), 850);
-    }
-  };
-
-  const playLook = (dir) => {
-    if (locked) return;
-    setLocked(true);
-    sfx.beep();
-
-    const petDir = Math.random() < 0.5 ? 'LEFT' : 'RIGHT';
-    const label = petDir === 'LEFT' ? '⬅️' : '➡️';
-    if (dir === petDir) {
-      sfx.win();
-      setResultText(`펫:${label} 적중!`);
-      setTimeout(() => onFinish(25, '어떻게 알았지?! 😲', 15), 850);
-    } else {
-      setResultText(`펫:${label} 빗나감!`);
-      setTimeout(() => onFinish(10, '메롱~ 😜', 5), 850);
-    }
-  };
-
-  const stopTiming = () => {
-    if (locked) return;
-    setLocked(true);
-
-    // 1단계: PERFECT (정중앙 빨간 테두리 박스 46 ~ 54 -> +15코인)
-    if (cursorPos >= 46 && cursorPos <= 54) {
-      sfx.win();
-      setResultText('★ PERFECT!! ★');
-      setTimeout(() => onFinish(25, '퍼펙트 캐치! ⚡', 15), 850);
-    }
-    // 2단계: NICE (좌우 초록 테두리 박스 35 ~ 65 -> 승리 인정 +10코인)
-    else if (cursorPos >= 35 && cursorPos <= 65) {
-      sfx.win();
-      setResultText('✨ NICE! ✨');
-      setTimeout(() => onFinish(20, '나이스 캐치! 🎯', 10), 850);
-    }
-    // 3단계: GOOD (외곽 검은 트랙 -> +5코인)
-    else {
       sfx.beep();
-      setResultText('👍 GOOD!');
-      setTimeout(() => onFinish(10, '굿! 아쉽다 😅', 5), 850);
+      onFinish(10, label, 5, 0, false);
     }
   };
 
+  // 1) 퍼펙트 캐치 UI
+  if (gameType === 'CATCH') {
+    const handleStop = (e) => {
+      e.stopPropagation();
+      const isHit = cursorPos >= 35 && cursorPos <= 65;
+      finishGame(isHit, isHit ? '퍼펙트 캐치!' : '아깝다!');
+    };
+
+    return (
+      <div style={wrapStyle}>
+        <div style={titleStyle}>[퍼펙트 캐치]</div>
+        <div style={{ fontSize: '7.5px' }}>중앙 노란 칸에 멈춰라!</div>
+        <div
+          style={{
+            width: '92%',
+            height: '14px',
+            border: '1.5px solid #1e293b',
+            borderRadius: '4px',
+            position: 'relative',
+            background: 'rgba(255,255,255,0.45)',
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              left: '35%',
+              width: '30%',
+              height: '100%',
+              background: '#facc15',
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              left: `${cursorPos}%`,
+              width: '10%',
+              height: '100%',
+              background: '#ef4444',
+            }}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: '4px', width: '92%' }}>
+          <button onClick={handleStop} style={btnStyle}>
+            🎯 멈춤!
+          </button>
+          <button onClick={onClose} style={subBtnStyle}>
+            닫기
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 2) 하이로우 숫자 예측 UI
+  if (gameType === 'HIGHLOW') {
+    const handleGuess = (guessHigh) => {
+      let nextNum = Math.floor(Math.random() * 9) + 1;
+      if (nextNum === baseNum) nextNum = baseNum < 5 ? baseNum + 1 : baseNum - 1;
+      const isWin = guessHigh ? nextNum > baseNum : nextNum < baseNum;
+      finishGame(isWin, `${baseNum}→${nextNum} ${isWin ? '적중!' : '실패!'}`);
+    };
+
+    return (
+      <div style={wrapStyle}>
+        <div style={titleStyle}>[하이 & 로우]</div>
+        <div style={{ fontSize: '13px', fontWeight: '900' }}>기준: {baseNum} vs ?</div>
+        <div style={{ display: 'flex', gap: '4px', width: '94%' }}>
+          <button onClick={() => handleGuess(true)} style={btnStyle}>
+            ▲ 크다
+          </button>
+          <button onClick={() => handleGuess(false)} style={btnStyle}>
+            ▼ 작다
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 3) 별똥별 피하기 UI
   return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        color: '#0f172a',
-        padding: '1px 0',
-      }}
-    >
-      {/* 3종 미니게임 전환 탭 */}
-      <div style={{ display: 'flex', gap: '2px', width: '100%' }}>
+    <div style={wrapStyle}>
+      <div style={titleStyle}>[별똥별 피하기]</div>
+      <div
+        style={{
+          width: '90%',
+          height: '44px',
+          border: '1px solid #1e293b',
+          borderRadius: '4px',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr 1fr',
+          position: 'relative',
+          background: 'rgba(255,255,255,0.35)',
+        }}
+      >
+        {[0, 1, 2].map((lane) => (
+          <div
+            key={lane}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '2px 0',
+              fontSize: '10px',
+            }}
+          >
+            <span>{meteorLane === lane ? '☄️' : ''}</span>
+            <span>{playerLane === lane ? '🐣' : ''}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: '4px', width: '90%' }}>
         <button
-          type="button"
           onClick={(e) => {
             e.stopPropagation();
-            switchMode('RPS', '가위바위보!');
+            sfx.beep();
+            setPlayerLane((l) => Math.max(0, l - 1));
           }}
-          style={tabStyle(mode === 'RPS')}
+          style={btnStyle}
         >
-          가위
+          ◀ 좌
         </button>
         <button
-          type="button"
           onClick={(e) => {
             e.stopPropagation();
-            switchMode('LOOK', '어딜 볼까?');
+            sfx.beep();
+            setPlayerLane((l) => Math.min(2, l + 1));
           }}
-          style={tabStyle(mode === 'LOOK')}
+          style={btnStyle}
         >
-          방향
-        </button>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            switchMode('TIMING', '빨간 칸에 멈춰라!');
-          }}
-          style={tabStyle(mode === 'TIMING')}
-        >
-          타이밍
+          우 ▶
         </button>
       </div>
-
-      {/* 안내 및 결과 문구 */}
-      <div style={{ fontSize: '9px', fontWeight: 'bold', textAlign: 'center' }}>{resultText}</div>
-
-      {/* 1. 가위바위보 */}
-      {mode === 'RPS' && (
-        <div style={{ display: 'flex', gap: '4px' }}>
-          {RPS_OPTIONS.map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                playRps(opt);
-              }}
-              disabled={locked}
-              style={emojiBtnStyle}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* 2. 방향 맞추기 */}
-      {mode === 'LOOK' && (
-        <div style={{ display: 'flex', gap: '5px' }}>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              playLook('LEFT');
-            }}
-            disabled={locked}
-            style={emojiBtnStyle}
-          >
-            ⬅️ 왼쪽
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              playLook('RIGHT');
-            }}
-            disabled={locked}
-            style={emojiBtnStyle}
-          >
-            ➡️ 오른쪽
-          </button>
-        </div>
-      )}
-
-      {/* 3. 타이밍 캐치 (첨부 이미지 기반: 검정 전체 바 + 좌우 초록 NICE 박스 + 중앙 빨강 PERFECT 박스) */}
-      {mode === 'TIMING' && (
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
-          <div style={{ position: 'relative', width: '100%', paddingTop: '5px' }}>
-            {/* 상단 이동 화살표 마커 */}
-            <div
-              style={{
-                position: 'absolute',
-                left: `calc(${cursorPos}% - 3px)`,
-                top: '-1px',
-                width: 0,
-                height: 0,
-                borderLeft: '3px solid transparent',
-                borderRight: '3px solid transparent',
-                borderTop: '5px solid #0f172a',
-                zIndex: 4,
-              }}
-            />
-
-            {/* 전체 검정 테두리 게이지 바 */}
-            <div
-              style={{
-                position: 'relative',
-                width: '100%',
-                height: '13px',
-                border: '2px solid #0f172a',
-                background: '#ffffff',
-                boxSizing: 'border-box',
-              }}
-            >
-              {/* 좌측 초록 NICE 박스 (35% ~ 46%) */}
-              <div
-                style={{
-                  position: 'absolute',
-                  left: '35%',
-                  width: '11%',
-                  height: '100%',
-                  border: '2px solid #16a34a',
-                  background: 'rgba(34, 197, 94, 0.14)',
-                  boxSizing: 'border-box',
-                  zIndex: 1,
-                }}
-              />
-
-              {/* 정중앙 빨강 PERFECT 박스 (46% ~ 54%) */}
-              <div
-                style={{
-                  position: 'absolute',
-                  left: '46%',
-                  width: '8%',
-                  height: '100%',
-                  border: '2px solid #dc2626',
-                  background: 'rgba(239, 68, 68, 0.18)',
-                  boxSizing: 'border-box',
-                  zIndex: 2,
-                }}
-              />
-
-              {/* 우측 초록 NICE 박스 (54% ~ 65%) */}
-              <div
-                style={{
-                  position: 'absolute',
-                  left: '54%',
-                  width: '11%',
-                  height: '100%',
-                  border: '2px solid #16a34a',
-                  background: 'rgba(34, 197, 94, 0.14)',
-                  boxSizing: 'border-box',
-                  zIndex: 1,
-                }}
-              />
-
-              {/* 왕복 판정 커서 바 */}
-              <div
-                style={{
-                  position: 'absolute',
-                  left: `calc(${cursorPos}% - 1.5px)`,
-                  top: 0,
-                  width: '3px',
-                  height: '100%',
-                  background: '#0f172a',
-                  zIndex: 3,
-                }}
-              />
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              stopTiming();
-            }}
-            disabled={locked}
-            style={stopBtnStyle}
-          >
-            STOP! 멈추기
-          </button>
-        </div>
-      )}
     </div>
   );
 }
 
-const tabStyle = (active) => ({
-  flex: 1,
-  background: active ? '#1e293b' : 'rgba(255,255,255,0.45)',
-  color: active ? '#f8fafc' : '#0f172a',
-  border: '1px solid #1e293b',
-  borderRadius: '3px',
-  fontSize: '7.8px',
-  padding: '1px 1px',
-  cursor: 'pointer',
-});
-
-const emojiBtnStyle = {
-  background: 'rgba(255,255,255,0.55)',
-  border: '1.5px solid #1e293b',
-  borderRadius: '4px',
-  padding: '2px 5px',
-  fontSize: '10.5px',
-  cursor: 'pointer',
-  filter: 'grayscale(100%) contrast(180%)',
+const wrapStyle = {
+  width: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '4px',
+  color: '#0f172a',
 };
 
-const stopBtnStyle = {
-  width: '100%',
+const titleStyle = {
+  fontSize: '9px',
+  fontWeight: '900',
+};
+
+const btnStyle = {
+  flex: 1,
   background: '#1e293b',
   color: '#f8fafc',
   border: 'none',
-  borderRadius: '3px',
-  padding: '2.5px 0',
+  borderRadius: '4px',
+  padding: '3px 4px',
   fontSize: '8.5px',
   fontWeight: 'bold',
+  cursor: 'pointer',
+};
+
+const subBtnStyle = {
+  background: 'rgba(15,23,42,0.15)',
+  color: '#0f172a',
+  border: '1px solid #334155',
+  borderRadius: '4px',
+  padding: '3px 6px',
+  fontSize: '8px',
   cursor: 'pointer',
 };
