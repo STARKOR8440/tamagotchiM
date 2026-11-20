@@ -12,6 +12,223 @@ function shadeColor(hex, percent) {
   return `#${(0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1)}`;
 }
 
+// 16x16 도트 맵을 32x32 viewBox(2x2 픽셀 블록)로 선명하게 렌더링하는 헬퍼
+function SecretPixelSprite({ sprite, frame, size, transformStyle }) {
+  const grid = frame === 1 ? sprite.frame1 : sprite.frame0;
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" shapeRendering="crispEdges" style={transformStyle}>
+      {grid.map((row, y) =>
+        row.split('').map((cell, x) => {
+          const fill = sprite.palette[cell];
+          if (!fill) return null;
+          return <rect key={`${x}-${y}`} x={x * 2} y={y * 2} width={2} height={2} fill={fill} />;
+        })
+      )}
+    </svg>
+  );
+}
+
+const SECRET_SPRITES = {
+  // 1. 보안관 우디 (토이스토리 에디션)
+  SECRET_WOODY: {
+    palette: {
+      K: '#3e1f0d',
+      H: '#78350f',
+      S: '#fed7aa',
+      W: '#ffffff',
+      E: '#0f172a',
+      R: '#dc2626',
+      Y: '#facc15',
+      V: '#f8fafc',
+      B: '#2563eb',
+      T: '#92400e',
+    },
+    frame0: [
+      '....KKKKKKKK....',
+      '...KHHHHHHHHK...',
+      '.KKKKKKKKKKKKKK.',
+      'KHHHHHHHHHHHHHHK',
+      '.KKKSSSSSSSSKKK.',
+      '...KSWESSWESK...',
+      '...KSSSSSSSSK...',
+      '....KSSSSSSK....',
+      '...KKRRRRRRKK...',
+      '..KYYVVKKVVYYK..',
+      '.KSYYVVKKVVYYSK.',
+      '.KSYYVVKKVVYYSK.',
+      '..KKBBBBBBBBKK..',
+      '....KBB..BBK....',
+      '....KTT..TTK....',
+      '...KKKK..KKKK...',
+    ],
+    frame1: [
+      '................',
+      '....KKKKKKKK....',
+      '...KHHHHHHHHK...',
+      '.KKKKKKKKKKKKKK.',
+      'KHHHHHHHHHHHHHHK',
+      '.KKKSSSSSSSSKKK.',
+      '...KSWESSWESK...',
+      '...KSSSSSSSSK...',
+      '...KKRRRRRRKKK..',
+      '.KSYYVVKKVVYYSK.',
+      '.KSYYVVKKVVYYSK.',
+      '..KYYVVKKVVYYK..',
+      '..KKBBBBBBBBKK..',
+      '...KBB....BBK...',
+      '...KTT....TTK...',
+      '..KKKK....KKKK..',
+    ],
+  },
+
+  // 2. 베이비 그로구 (스타워즈 그로구 에디션)
+  SECRET_GROGU: {
+    palette: {
+      K: '#14532d',
+      G: '#86efac',
+      D: '#4ade80',
+      P: '#fbcfe8',
+      E: '#0f172a',
+      W: '#ffffff',
+      C: '#d6d3d1',
+      B: '#a8a29e',
+      M: '#78716c',
+    },
+    frame0: [
+      '................',
+      '.....KKKKKK.....',
+      '....KGGGGGGK....',
+      'KKKKGGGGGGGGKKKK',
+      'KPPPGGGGGGGGPPPK',
+      '.KKKGEWGGWEGKKK.',
+      '...KGGGGGGGGK...',
+      '....KDDDDDDK....',
+      '...KBBBBBBBBK...',
+      '..KCCMBBBBMCKK..',
+      '.KGCCMBBBBMCGGK.',
+      '.KKCCMBBBBMCCKK.',
+      '..KCCCMMMMCCCK..',
+      '..KCCCMMMMCCCK..',
+      '...KKKKKKKKKK...',
+      '................',
+    ],
+    frame1: [
+      '................',
+      '................',
+      '.....KKKKKK.....',
+      '....KGGGGGGK....',
+      'KKKKGGGGGGGGKKKK',
+      'KPPPGGGGGGGGPPPK',
+      '.KKKGEWGGWEGKKK.',
+      '...KGGGGGGGGK...',
+      '...KBBBBBBBBK...',
+      '..KCCMBBBBMCKK..',
+      '.KGCCMBBBBMCGGK.',
+      '.KKCCMBBBBMCCKK.',
+      '..KCCCMMMMCCCK..',
+      '..KCCCMMMMCCCK..',
+      '...KKKKKKKKKK...',
+      '................',
+    ],
+  },
+
+  // 3. 리본 헬로키티 (헬로키티 에디션)
+  SECRET_KITTY: {
+    palette: {
+      K: '#1e3a8a',
+      W: '#ffffff',
+      R: '#ef4444',
+      P: '#f43f5e',
+      Y: '#facc15',
+      B: '#2563eb',
+    },
+    frame0: [
+      '................',
+      '..KK......KKRR..',
+      '.KWWK....KWRRPK.',
+      '.KWWKKKKKKWRRPK.',
+      '.KWWWWWWWWWRRPK.',
+      'KKWWWWWWWWWWKKK.',
+      '.KWWKWWWWKWWK...',
+      'KKWWKWWWWKWWKK..',
+      '.KWWWWYYWWWWK...',
+      '..KKKKKKKKKK....',
+      '..KYYBBBBYYK....',
+      '.KWYYBBBBYYWK...',
+      '.KKBBBBBBBBKK...',
+      '...KBB..BBK.....',
+      '...KWW..WWK.....',
+      '...KKK..KKK.....',
+    ],
+    frame1: [
+      '................',
+      '................',
+      '..KK......KKRR..',
+      '.KWWK....KWRRPK.',
+      '.KWWKKKKKKWRRPK.',
+      '.KWWWWWWWWWRRPK.',
+      'KKWWWWWWWWWWKKK.',
+      '.KWWKWWWWKWWK...',
+      'KKWWKWWWWKWWKK..',
+      '.KWWWWYYWWWWK...',
+      '..KKKKKKKKKK....',
+      '.KWYYBBBBYYWK...',
+      '..KYYBBBBYYK....',
+      '..KKBBBBBBBBKK..',
+      '..KBB......BBK..',
+      '..KKK......KKK..',
+    ],
+  },
+
+  // 4. 드로이드 R2-D2 (스타워즈 R2-D2 에디션)
+  SECRET_R2D2: {
+    palette: {
+      K: '#475569',
+      W: '#ffffff',
+      S: '#cbd5e1',
+      B: '#2563eb',
+      D: '#0f172a',
+      C: '#38bdf8',
+    },
+    frame0: [
+      '................',
+      '.....KKKKKK.....',
+      '...KKSSSSSSKK...',
+      '..KSSBBBBBBSSK..',
+      '..KSBBDDDDDBSK..',
+      '..KSBBDCCDBBSK..',
+      '..KBBBBBBBBBBK..',
+      '..KWWWWWWWWWWK..',
+      '.KKWBBBBBBBBWKK.',
+      '.KSWWWWWWWWWWSTK',
+      '.KSWWBBBBBBWWSK.',
+      '.KSWWWWBWWWWWSK.',
+      '.KSWWWBWBWWWWSK.',
+      '.KKWWWBWBWWWWKK.',
+      '.KKK.KKKKKK.KKK.',
+      '................',
+    ],
+    frame1: [
+      '................',
+      '.....KKKKKK.....',
+      '...KKSSSSSSKK...',
+      '..KSSBBBBBBSSK..',
+      '..KSBBDDDDDBSK..',
+      '..KSBBDCCDBBSK..',
+      '..KBBBBBBBBBBK..',
+      '..KWWWWWWWWWWK..',
+      '.KKWBBBBBBBBWKK.',
+      '.KSWWWWWWWWWWSTK',
+      '.KSWWBBBBBBWWSK.',
+      '.KSWWWWBWWWWWSK.',
+      '.KSWWWBWBWWWWSK.',
+      '.KKWWWBWBWWWWKK.',
+      'KKKK.KKKKKK.KKKK',
+      '................',
+    ],
+  },
+};
+
 export default function PetSprite({
   speciesId = 'BABY_MARU',
   direction = 1,
@@ -42,6 +259,18 @@ export default function PetSprite({
     filter: lcdMode ? 'grayscale(100%) contrast(235%) brightness(84%)' : stickerOutline,
   };
 
+  // 시크릿 4종 전용 스프라이트 (기존 32x32 사이즈·스티커 아웃라인 동일 적용)
+  if (SECRET_SPRITES[speciesId]) {
+    return (
+      <SecretPixelSprite
+        sprite={SECRET_SPRITES[speciesId]}
+        frame={frame}
+        size={size}
+        transformStyle={transformStyle}
+      />
+    );
+  }
+
   // 0단계: 32x32 세련된 알 스프라이트
   if (spec.stage === 'EGG') {
     const tilt = frame === 1 ? 'rotate(3deg)' : 'rotate(-3deg)';
@@ -55,10 +284,8 @@ export default function PetSprite({
       >
         <path fill="#1e293b" d="M12 4h8v1h3v2h2v4h1v10h-1v4h-2v2h-3v1h-8v-1H9v-2H7v-4H6V11h1V7h2V5h3V4z" />
         <path fill="#fefce8" d="M12 5h8v2h3v4h1v10h-1v3h-3v2h-8v-2H9v-3H8V11h1V7h3V5z" />
-        {/* 입체 그림자 & 하이라이트 */}
         <path fill="#fde047" d="M21 9h2v12h-2v3h-3v1h-6v-1h6v-2h2V9z" />
         <path fill="#ffffff" d="M11 7h3v2h-2v3h-1V7z" />
-        {/* 파스텔 무늬 */}
         <path fill="#38bdf8" d="M11 12h4v3h-4v-3zm7 4h4v3h-4v-3zm-6 4h3v3h-3v-3z" />
       </svg>
     );
@@ -72,10 +299,8 @@ export default function PetSprite({
         <path fill={baseColor} d="M10 10h12v2h3v3h1v8h-1v2H7v-2H6v-8h1v-3h3v-2z" />
         <path fill={lightColor} d="M10 11h6v2h-6v-2z" />
         <path fill={shadowColor} d="M7 23h18v2H7v-2z" />
-        {/* 큰 눈망울 */}
         <path fill="#1e293b" d="M10 16h3v4h-3v-4zm9 0h3v4h-3v-4z" />
         <path fill="#ffffff" d="M10 16h1v2h-1v-2zm9 0h1v2h-1v-2z" />
-        {/* 볼터치 & 입 */}
         <path fill="#fb7185" d="M8 20h2v1H8v-1zm14 0h2v1h-2v-1z" />
         <path fill="#1e293b" d="M14 20h1v1h2v-1h1v1h-1v1h-2v-1h-1v-1z" />
       </svg>
@@ -96,7 +321,7 @@ export default function PetSprite({
         <path fill={spec.accent || '#cbd5e1'} d={frame === 0 ? 'M4 17h3v6H4v-6zm21 0h3v6h-3v-6z' : 'M3 15h4v5H3v-5zm22 0h4v5h-4v-5z'} />
       )}
       {spec.ear === 'dragon' && (
-        <path fill={spec.accent || '#38bdf8'} d={frame === 0 ? 'M2 14h5v6H2v-6zm23 0h5v6h-5v-6z' : 'M2 16h5v6H2v-6zm23 0h5v6h-5v-6z'} />
+        <path fill={spec.accent || '#38bdf8'} d={frame === 0 ? 'M2 14h5v6H2v-6zm23 0h5v6h-5v-6z' : 'M2 16h5v6h-5v-6zm23 0h5v6h-5v-6z'} />
       )}
       {spec.ear === 'mermaid' && (
         <path fill={spec.accent || '#fbcfe8'} d="M3 15h4v5H3v-5zm22 0h4v5h-4v-5zM11 26h10v2H11v-2zm-2 2h5v2H9v-2zm9 0h5v2h-5v-2z" />
@@ -251,7 +476,6 @@ export default function PetSprite({
       {/* --- 2등신 하단 몸통 + 짧은 팔 + 걷기 발 애니메이션 --- */}
       {spec.ear !== 'mermaid' && (
         <>
-          {/* 몸통 외곽선 & 채우기 */}
           <path fill="#1e293b" d="M10 20h12v6H10v-6z" />
           <path fill={baseColor} d="M11 20h10v5H11v-5z" />
           {spec.ear === 'penguin' && <path fill="#ffffff" d="M12 20h8v5h-8v-5z" />}
@@ -259,7 +483,7 @@ export default function PetSprite({
             <path fill={spec.accent} d="M14 21h4v3h-4v-3z" />
           )}
 
-          {/* 양팔 (걷기/기쁨 프레임 연동) */}
+          {/* 양팔 */}
           {frame === 0 ? (
             <>
               <path fill="#1e293b" d="M7 21h3v3H7v-3zm15 0h3v3h-3v-3z" />
@@ -272,7 +496,7 @@ export default function PetSprite({
             </>
           )}
 
-          {/* 두 발 (교차 스텝) */}
+          {/* 두 발 */}
           {frame === 0 ? (
             <path fill="#1e293b" d="M9 26h5v2H9v-2zm9 0h5v2h-5v-2z" />
           ) : (
