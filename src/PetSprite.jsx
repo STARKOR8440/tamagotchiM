@@ -12,7 +12,7 @@ function shadeColor(hex, percent) {
   return `#${(0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1)}`;
 }
 
-// 16x16 도트 맵을 32x32 viewBox(2x2 픽셀 블록)로 선명하게 렌더링하는 헬퍼
+// 32x32 고밀도 시크릿 픽셀 스프라이트 렌더러
 function SecretPixelSprite({ sprite, frame, size, transformStyle }) {
   const grid = frame === 1 ? sprite.frame1 : sprite.frame0;
   return (
@@ -21,7 +21,7 @@ function SecretPixelSprite({ sprite, frame, size, transformStyle }) {
         row.split('').map((cell, x) => {
           const fill = sprite.palette[cell];
           if (!fill) return null;
-          return <rect key={`${x}-${y}`} x={x * 2} y={y * 2} width={2} height={2} fill={fill} />;
+          return <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill={fill} />;
         })
       )}
     </svg>
@@ -29,202 +29,348 @@ function SecretPixelSprite({ sprite, frame, size, transformStyle }) {
 }
 
 const SECRET_SPRITES = {
-  // 1. 보안관 우디 (토이스토리 에디션)
+  // 1. 보안관 우디 (32x32 고해상도: 카우보이 모자·빨간 스카프·체크 셔츠·얼룩 조끼·보안관 배지·부츠)
   SECRET_WOODY: {
     palette: {
-      K: '#3e1f0d',
-      H: '#78350f',
-      S: '#fed7aa',
-      W: '#ffffff',
-      E: '#0f172a',
-      R: '#dc2626',
-      Y: '#facc15',
-      V: '#f8fafc',
-      B: '#2563eb',
-      T: '#92400e',
+      O: '#271207', // 짙은 아웃라인
+      H: '#92400e', // 모자 기본 브라운
+      h: '#b45309', // 모자 하이라이트
+      d: '#5c280b', // 모자 챙 그림자
+      S: '#fed7aa', // 얼굴/손 피부
+      s: '#fdba74', // 피부 음영
+      W: '#ffffff', // 눈 흰자
+      E: '#0f172a', // 눈동자/눈썹
+      R: '#dc2626', // 빨간 스카프
+      r: '#991b1b', // 스카프 음영
+      Y: '#facc15', // 노란 셔츠
+      c: '#ea580c', // 셔츠 체크 라인
+      V: '#ffffff', // 카우 조끼 바탕
+      v: '#1e293b', // 카우 조끼 얼룩
+      G: '#fde047', // 보안관 별 배지 / 벨트 버클
+      B: '#2563eb', // 청바지
+      b: '#1d4ed8', // 청바지 음영
+      T: '#78350f', // 카우보이 부츠
     },
     frame0: [
-      '....KKKKKKKK....',
-      '...KHHHHHHHHK...',
-      '.KKKKKKKKKKKKKK.',
-      'KHHHHHHHHHHHHHHK',
-      '.KKKSSSSSSSSKKK.',
-      '...KSWESSWESK...',
-      '...KSSSSSSSSK...',
-      '....KSSSSSSK....',
-      '...KKRRRRRRKK...',
-      '..KYYVVKKVVYYK..',
-      '.KSYYVVKKVVYYSK.',
-      '.KSYYVVKKVVYYSK.',
-      '..KKBBBBBBBBKK..',
-      '....KBB..BBK....',
-      '....KTT..TTK....',
-      '...KKKK..KKKK...',
+      '..........OOOOOOOOOOOO..........',
+      '........OOHHHHHHHHHHHHOO........',
+      '.......OHHhhhhhhhhhhhhHHO.......',
+      '.......OHHHHHHHHHHHHHHHHO.......',
+      '......OddddddddddddddddddO......',
+      '...OOOOddddddddddddddddddOOOO...',
+      '..OddddddddddddddddddddddddddO..',
+      '...OOOOOOSSSSSSSSSSSSSSOOOOOO...',
+      '.......OSSSSSSSSSSSSSSSSO.......',
+      '.......OSsEEssssssssEEsSO.......',
+      '.......OSWEEssssssssWEEsO.......',
+      '.......OSSSSSSSSSSSSSSSSO.......',
+      '.......OsSSSSSSssSSSSSSsO.......',
+      '........OssssSSSSSSssssO........',
+      '.........OOSSSSSSSSSSOO.........',
+      '........OORRRRRRRRRRRROO........',
+      '.......ORRrRRRRRRRRRRrRRO.......',
+      '......OYYVVVvVVOOOVVvVVYYO......',
+      '.....OSYYVVVVVGOOOVVVVVYYSO.....',
+      '....OSSYcVVvVVVOOOVVvVVcYSSO....',
+      '....OSSYYVVVVVVOOOVVVVVYYSSO....',
+      '.....OOYcVVvVVVOOOVVvVVcYOO.....',
+      '......OYYBBBBBBGGBBBBBBYYO......',
+      '.......OOBBBBBBBBBBBBBBOO.......',
+      '........OBBBBBbOOOBBBBBBO.......',
+      '........OBBBBBO..OBBBBBO........',
+      '........ObbbbBO..OBbbbbO........',
+      '........OTTTTTO..OTTTTTO........',
+      '.......OTTTTTTO..OTTTTTTO.......',
+      '.......OOOOOOOO..OOOOOOOO.......',
+      '................................',
+      '................................',
     ],
     frame1: [
-      '................',
-      '....KKKKKKKK....',
-      '...KHHHHHHHHK...',
-      '.KKKKKKKKKKKKKK.',
-      'KHHHHHHHHHHHHHHK',
-      '.KKKSSSSSSSSKKK.',
-      '...KSWESSWESK...',
-      '...KSSSSSSSSK...',
-      '...KKRRRRRRKKK..',
-      '.KSYYVVKKVVYYSK.',
-      '.KSYYVVKKVVYYSK.',
-      '..KYYVVKKVVYYK..',
-      '..KKBBBBBBBBKK..',
-      '...KBB....BBK...',
-      '...KTT....TTK...',
-      '..KKKK....KKKK..',
+      '................................',
+      '..........OOOOOOOOOOOO..........',
+      '........OOHHHHHHHHHHHHOO........',
+      '.......OHHhhhhhhhhhhhhHHO.......',
+      '.......OHHHHHHHHHHHHHHHHO.......',
+      '......OddddddddddddddddddO......',
+      '...OOOOddddddddddddddddddOOOO...',
+      '..OddddddddddddddddddddddddddO..',
+      '...OOOOOOSSSSSSSSSSSSSSOOOOOO...',
+      '.......OSSSSSSSSSSSSSSSSO.......',
+      '.......OSsEEssssssssEEsSO.......',
+      '.......OSWEEssssssssWEEsO.......',
+      '.......OSSSSSSSSSSSSSSSSO.......',
+      '.......OsSSSSSSssSSSSSSsO.......',
+      '........OssssSSSSSSssssO........',
+      '.........OOSSSSSSSSSSOO.........',
+      '........OORRRRRRRRRRRROO........',
+      '.......ORRrRRRRRRRRRRrRRO.......',
+      '.....OSYYVVVvVVOOOVVvVVYYSO.....',
+      '....OSSYYVVVVVGOOOVVVVVYYSSO....',
+      '....OSSYcVVvVVVOOOVVvVVcYSSO....',
+      '.....OOYYVVVVVVOOOVVVVVYYOO.....',
+      '......OYYBBBBBBGGBBBBBBYYO......',
+      '.......OOBBBBBBBBBBBBBBOO.......',
+      '.......OBBBBBbO..ObBBBBBO.......',
+      '.......OBBBBBO....OBBBBBO.......',
+      '.......ObbbbBO....OBbbbbO.......',
+      '.......OTTTTTO....OTTTTTO.......',
+      '......OTTTTTTO....OTTTTTTO......',
+      '......OOOOOOOO....OOOOOOOO......',
+      '................................',
+      '................................',
     ],
   },
 
-  // 2. 베이비 그로구 (스타워즈 그로구 에디션)
+  // 2. 베이비 그로구 (32x32 고해상도: 대형 뾰족 귀·핑크 귀안·주름진 이마·대형 눈망울·하이칼라 로브)
   SECRET_GROGU: {
     palette: {
-      K: '#14532d',
-      G: '#86efac',
-      D: '#4ade80',
-      P: '#fbcfe8',
-      E: '#0f172a',
-      W: '#ffffff',
-      C: '#d6d3d1',
-      B: '#a8a29e',
-      M: '#78716c',
+      O: '#14381e', // 짙은 숲녹색 아웃라인
+      G: '#86efac', // 밝은 민트 그린 피부
+      g: '#4ade80', // 중간 그린 음영
+      d: '#22c55e', // 짙은 그린 주름/그림자
+      P: '#f9a8d4', // 귀 안쪽 핑크
+      p: '#f472b6', // 귀 안쪽 진핑크
+      E: '#090d16', // 대형 까만 눈동자
+      W: '#ffffff', // 눈 반짝임 하이라이트
+      C: '#e7e5e4', // 로브 칼라/소매 밝은 베이지
+      R: '#d6d3d1', // 로브 기본 베이지
+      r: '#a8a29e', // 로브 주름 음영
+      m: '#78716c', // 로브 깊은 그림자
     },
     frame0: [
-      '................',
-      '.....KKKKKK.....',
-      '....KGGGGGGK....',
-      'KKKKGGGGGGGGKKKK',
-      'KPPPGGGGGGGGPPPK',
-      '.KKKGEWGGWEGKKK.',
-      '...KGGGGGGGGK...',
-      '....KDDDDDDK....',
-      '...KBBBBBBBBK...',
-      '..KCCMBBBBMCKK..',
-      '.KGCCMBBBBMCGGK.',
-      '.KKCCMBBBBMCCKK.',
-      '..KCCCMMMMCCCK..',
-      '..KCCCMMMMCCCK..',
-      '...KKKKKKKKKK...',
-      '................',
+      '................................',
+      '................................',
+      '...........OOOOOOOOOO...........',
+      '.........OOGGGGGGGGGGOO.........',
+      '........OGGggggggggggGGO........',
+      'OOOO....OGGdddGGGGdddGGO....OOOO',
+      'OPppOOOOOGGGGGGGGGGGGGGOOOOOPppO',
+      'OPpppPPPGGGGGGGGGGGGGGGGPPPpppPO',
+      '.OOPppppGGGGGGGGGGGGGGGGppppPOO.',
+      '..OOOGGGgEEEEGGGGGGEEEEgGGGOOO..',
+      '....OOGGgEWEEGGGGGGEEWEgGGOO....',
+      '.....OOGgEEEEggggggEEEEgGOO.....',
+      '......OOGggggggddggggggGOO......',
+      '.......OOGggggggggggggGOO.......',
+      '........OOddddddddddddOO........',
+      '.......OOCCCCCCCCCCCCCCOO.......',
+      '......OCCCCmmmmmmmmmmCCCCO......',
+      '.....OCCCCmRRRRRRRRRRmCCCCO.....',
+      '....OGGCCmRRRRrRRrRRRRmCCGGO....',
+      '...OGGGCCmRRRRrRRrRRRRmCCGGGO...',
+      '...OGgOCCmRRRRrRRrRRRRmCCOgGO...',
+      '....OO.OCmRRRRrRRrRRRRmCO.OO....',
+      '.......OCmRRRRrRRrRRRRmCO.......',
+      '.......OCmRRRRrRRrRRRRmCO.......',
+      '.......OCmRRRRrRRrRRRRmCO.......',
+      '.......OCmRRRRrRRrRRRRmCO.......',
+      '.......OOmmmmmmmmmmmmmmOO.......',
+      '........OOOOOOOOOOOOOOOO........',
+      '................................',
+      '................................',
+      '................................',
+      '................................',
     ],
     frame1: [
-      '................',
-      '................',
-      '.....KKKKKK.....',
-      '....KGGGGGGK....',
-      'KKKKGGGGGGGGKKKK',
-      'KPPPGGGGGGGGPPPK',
-      '.KKKGEWGGWEGKKK.',
-      '...KGGGGGGGGK...',
-      '...KBBBBBBBBK...',
-      '..KCCMBBBBMCKK..',
-      '.KGCCMBBBBMCGGK.',
-      '.KKCCMBBBBMCCKK.',
-      '..KCCCMMMMCCCK..',
-      '..KCCCMMMMCCCK..',
-      '...KKKKKKKKKK...',
-      '................',
+      '................................',
+      '................................',
+      '................................',
+      '...........OOOOOOOOOO...........',
+      '.........OOGGGGGGGGGGOO.........',
+      '........OGGggggggggggGGO........',
+      'OOOO....OGGdddGGGGdddGGO....OOOO',
+      'OPppOOOOOGGGGGGGGGGGGGGOOOOOPppO',
+      'OPpppPPPGGGGGGGGGGGGGGGGPPPpppPO',
+      '.OOPppppGGGGGGGGGGGGGGGGppppPOO.',
+      '..OOOGGGgEEEEGGGGGGEEEEgGGGOOO..',
+      '....OOGGgEWEEGGGGGGEEWEgGGOO....',
+      '.....OOGgEEEEggggggEEEEgGOO.....',
+      '......OOGggggggddggggggGOO......',
+      '.......OOGggggggggggggGOO.......',
+      '........OOddddddddddddOO........',
+      '.......OOCCCCCCCCCCCCCCOO.......',
+      '......OCCCCmmmmmmmmmmCCCCO......',
+      '....OGGCCmRRRRRRRRRRRRmCCGGO....',
+      '...OGGGCCmRRRRrRRrRRRRmCCGGGO...',
+      '...OGgOCCmRRRRrRRrRRRRmCCOgGO...',
+      '....OO.OCmRRRRrRRrRRRRmCO.OO....',
+      '.......OCmRRRRrRRrRRRRmCO.......',
+      '.......OCmRRRRrRRrRRRRmCO.......',
+      '.......OCmRRRRrRRrRRRRmCO.......',
+      '.......OCmRRRRrRRrRRRRmCO.......',
+      '.......OOmmmmmmmmmmmmmmOO.......',
+      '........OOOOOOOOOOOOOOOO........',
+      '................................',
+      '................................',
+      '................................',
+      '................................',
     ],
   },
 
-  // 3. 리본 헬로키티 (헬로키티 에디션)
+  // 3. 리본 헬로키티 (32x32 고해상도: 부드러운 윤곽·빨간 입체 리본·6가닥 수염·노란 코·파란 멜빵바지)
   SECRET_KITTY: {
     palette: {
-      K: '#1e3a8a',
-      W: '#ffffff',
-      R: '#ef4444',
-      P: '#f43f5e',
-      Y: '#facc15',
-      B: '#2563eb',
+      O: '#1e293b', // 깔끔한 다크 아웃라인
+      W: '#ffffff', // 순백색 털
+      w: '#e2e8f0', // 부드러운 입체 음영
+      R: '#ef4444', // 선명한 레드 리본
+      r: '#b91c1c', // 리본 음영
+      p: '#fca5a5', // 리본 하이라이트
+      Y: '#facc15', // 노란 코 & 반팔 티셔츠
+      B: '#2563eb', // 파란 오버롤 멜빵
+      b: '#1d4ed8', // 오버롤 음영
     },
     frame0: [
-      '................',
-      '..KK......KKRR..',
-      '.KWWK....KWRRPK.',
-      '.KWWKKKKKKWRRPK.',
-      '.KWWWWWWWWWRRPK.',
-      'KKWWWWWWWWWWKKK.',
-      '.KWWKWWWWKWWK...',
-      'KKWWKWWWWKWWKK..',
-      '.KWWWWYYWWWWK...',
-      '..KKKKKKKKKK....',
-      '..KYYBBBBYYK....',
-      '.KWYYBBBBYYWK...',
-      '.KKBBBBBBBBKK...',
-      '...KBB..BBK.....',
-      '...KWW..WWK.....',
-      '...KKK..KKK.....',
+      '................................',
+      '................................',
+      '.....OOO..............OOO.......',
+      '....OWWWO............ORRRO......',
+      '...OWWWWWO..........ORpRRrO.....',
+      '..OWWWWWWWO.OOOOOO.ORRRORrRO....',
+      '..OWWWWWWWWOWWWWWWORRRpORRRrO...',
+      '..OWWWWWWWWWWWWWWWORRRRORrRO....',
+      '..OWWWWWWWWWWWWWWWWORrRORRO.....',
+      '.OWWWWWWWWWWWWWWWWWWOORROO......',
+      '.OWWWWWWWWWWWWWWWWWWWWWWWWO.....',
+      'OOOWWWWWOOOWWWWWWWOOOWWWWWOOO...',
+      '.OWWWWWWOOOWWWWWWWOOOWWWWWWO....',
+      'OOOWWWWWOOOWWWWWWWOOOWWWWWOOO...',
+      '.OWWWWWWWWWWWYYYWWWWWWWWWWWO....',
+      'OOOWWWWWWWWWWYYYWWWWWWWWWWOOO...',
+      '..OwwwwWWWWWWWWWWWWWWWwwwwO.....',
+      '...OOOOwwwwwwwwwwwwwwwOOOO......',
+      '......OOYYYYBBBBBBYYYYOO........',
+      '.....OWWYYYYBBBBBBYYYYWWO.......',
+      '....OWWWYYYYBBBBBBYYYYWWWO......',
+      '....OWwOOBBBBBBBBBBBBOOwwO......',
+      '.....OO.OBBBYBBBBYBBBO.OO.......',
+      '........OBBBBBBBBBBBBO..........',
+      '........OBBBBBBBBBBBBO..........',
+      '........ObbbbBO.ObbbbO..........',
+      '........OWWWWO...OWWWWO.........',
+      '........OOOOOO...OOOOOO.........',
+      '................................',
+      '................................',
+      '................................',
+      '................................',
     ],
     frame1: [
-      '................',
-      '................',
-      '..KK......KKRR..',
-      '.KWWK....KWRRPK.',
-      '.KWWKKKKKKWRRPK.',
-      '.KWWWWWWWWWRRPK.',
-      'KKWWWWWWWWWWKKK.',
-      '.KWWKWWWWKWWK...',
-      'KKWWKWWWWKWWKK..',
-      '.KWWWWYYWWWWK...',
-      '..KKKKKKKKKK....',
-      '.KWYYBBBBYYWK...',
-      '..KYYBBBBYYK....',
-      '..KKBBBBBBBBKK..',
-      '..KBB......BBK..',
-      '..KKK......KKK..',
+      '................................',
+      '................................',
+      '................................',
+      '.....OOO..............OOO.......',
+      '....OWWWO............ORRRO......',
+      '...OWWWWWO..........ORpRRrO.....',
+      '..OWWWWWWWO.OOOOOO.ORRRORrRO....',
+      '..OWWWWWWWWOWWWWWWORRRpORRRrO...',
+      '..OWWWWWWWWWWWWWWWORRRRORrRO....',
+      '..OWWWWWWWWWWWWWWWWORrRORRO.....',
+      '.OWWWWWWWWWWWWWWWWWWOORROO......',
+      '.OWWWWWWWWWWWWWWWWWWWWWWWWO.....',
+      'OOOWWWWWOOOWWWWWWWOOOWWWWWOOO...',
+      '.OWWWWWWOOOWWWWWWWOOOWWWWWWO....',
+      'OOOWWWWWOOOWWWWWWWOOOWWWWWOOO...',
+      '.OWWWWWWWWWWWYYYWWWWWWWWWWWO....',
+      'OOOWWWWWWWWWWYYYWWWWWWWWWWOOO...',
+      '..OwwwwWWWWWWWWWWWWWWWwwwwO.....',
+      '...OOOOwwwwwwwwwwwwwwwOOOO......',
+      '.....OWWYYYYBBBBBBYYYYWWO.......',
+      '....OWWWYYYYBBBBBBYYYYWWWO......',
+      '....OWwOOBBBBBBBBBBBBOOwwO......',
+      '.....OO.OBBBYBBBBYBBBO.OO.......',
+      '........OBBBBBBBBBBBBO..........',
+      '........OBBBBBBBBBBBBO..........',
+      '.......ObbbbBO...ObbbbO.........',
+      '.......OWWWWO.....OWWWWO........',
+      '.......OOOOOO.....OOOOOO........',
+      '................................',
+      '................................',
+      '................................',
+      '................................',
     ],
   },
 
-  // 4. 드로이드 R2-D2 (스타워즈 R2-D2 에디션)
+  // 4. 드로이드 R2-D2 (32x32 고해상도: 실버 메탈 돔·광학 렌즈 센서·레드 LED·블루 패널·3족 드로이드 다리)
   SECRET_R2D2: {
     palette: {
-      K: '#475569',
-      W: '#ffffff',
-      S: '#cbd5e1',
-      B: '#2563eb',
-      D: '#0f172a',
-      C: '#38bdf8',
+      O: '#334155', // 메탈 외곽선
+      S: '#e2e8f0', // 실버 돔 기본
+      s: '#94a3b8', // 실버 돔 음영
+      W: '#ffffff', // 순백 바디 & 반사광
+      w: '#cbd5e1', // 화이트 바디 음영
+      B: '#2563eb', // 로열 블루 장갑
+      b: '#1d4ed8', // 짙은 블루 음영
+      D: '#0f172a', // 광학 센서 블랙
+      C: '#38bdf8', // 센서 렌즈 빛
+      R: '#ef4444', // 붉은 상태 표시등
     },
     frame0: [
-      '................',
-      '.....KKKKKK.....',
-      '...KKSSSSSSKK...',
-      '..KSSBBBBBBSSK..',
-      '..KSBBDDDDDBSK..',
-      '..KSBBDCCDBBSK..',
-      '..KBBBBBBBBBBK..',
-      '..KWWWWWWWWWWK..',
-      '.KKWBBBBBBBBWKK.',
-      '.KSWWWWWWWWWWSTK',
-      '.KSWWBBBBBBWWSK.',
-      '.KSWWWWBWWWWWSK.',
-      '.KSWWWBWBWWWWSK.',
-      '.KKWWWBWBWWWWKK.',
-      '.KKK.KKKKKK.KKK.',
-      '................',
+      '................................',
+      '................................',
+      '...........OOOOOOOOOO...........',
+      '.........OOSSSSSSSSSSOO.........',
+      '.......OOSSSSBBBBBBSSSSOO.......',
+      '......OSSSSBBBBBBBBBBSSSSO......',
+      '.....OSSSBBBBDDDDDDBBBBSSSO.....',
+      '.....OSSBBBBDDDCCDDDBBBBSSO.....',
+      '....OSSSBBBBDDDCDDDDBBBBSSSO....',
+      '....OSSSBBBBDDDDDDDDBBBBSSSO....',
+      '....OSSSSBBBBBBBBBBBBBBSSSSO....',
+      '....OSSSSSSSSSSSSSSSSSSSSSSO....',
+      '....OSBBSSBBSSBBBBSSBBSSBBSO....',
+      '....OSBBSSBBSSBBBRSSBBSSBBSO....',
+      '....OOOOOOOOOOOOOOOOOOOOOOOO....',
+      '....OWWWWWWWWWWWWWWWWWWWWWWO....',
+      '...OOWWWBBBBBBBBBBBBBBBBWWWO....',
+      '..OSOWWWWWWWWWWWWWWWWWWWWWWOwO..',
+      '..OSOWWWBBBBBBBBBBBBBBBBWWWOwO..',
+      '..OSOWWWWWWWWWWWWWWWWWWWWWWOwO..',
+      '..OSOWWWWWWWWWBBBBWWWWWWWWWOwO..',
+      '..OSOWWWWWWWWWBBBBWWWWWWWWWOwO..',
+      '..OSOWWWWWWWWBBWWBBWWWWWWWWOwO..',
+      '..OSOWWWWWWWWBBWWBBWWWWWWWWOwO..',
+      '..OSOWWWWWWWWBBWWBBWWWWWWWWOwO..',
+      '..OSOOwwwwwwwwwwwwwwwwwwwwOOwO..',
+      '.OSSSOOOOOOOOOOOOOOOOOOOOOOSSSO.',
+      '.OOOOO......OObbbbOO......OOOOO.',
+      '...........OOOOOOOOOO...........',
+      '................................',
+      '................................',
+      '................................',
     ],
     frame1: [
-      '................',
-      '.....KKKKKK.....',
-      '...KKSSSSSSKK...',
-      '..KSSBBBBBBSSK..',
-      '..KSBBDDDDDBSK..',
-      '..KSBBDCCDBBSK..',
-      '..KBBBBBBBBBBK..',
-      '..KWWWWWWWWWWK..',
-      '.KKWBBBBBBBBWKK.',
-      '.KSWWWWWWWWWWSTK',
-      '.KSWWBBBBBBWWSK.',
-      '.KSWWWWBWWWWWSK.',
-      '.KSWWWBWBWWWWSK.',
-      '.KKWWWBWBWWWWKK.',
-      'KKKK.KKKKKK.KKKK',
-      '................',
+      '................................',
+      '...........OOOOOOOOOO...........',
+      '.........OOSSSSSSSSSSOO.........',
+      '.......OOSSSSBBBBBBSSSSOO.......',
+      '......OSSSSBBBBBBBBBBSSSSO......',
+      '.....OSSSBBBBDDDDDDBBBBSSSO.....',
+      '.....OSSBBBBDDDCCDDDBBBBSSO.....',
+      '....OSSSBBBBDDDCDDDDBBBBSSSO....',
+      '....OSSSBBBBDDDDDDDDBBBBSSSO....',
+      '....OSSSSBBBBBBBBBBBBBBSSSSO....',
+      '....OSSSSSSSSSSSSSSSSSSSSSSO....',
+      '....OSBBSSBBSSBBBBSSBBSSBBSO....',
+      '....OSBBSSBBSSBBBRSSBBSSBBSO....',
+      '....OOOOOOOOOOOOOOOOOOOOOOOO....',
+      '....OWWWWWWWWWWWWWWWWWWWWWWO....',
+      '...OOWWWBBBBBBBBBBBBBBBBWWWO....',
+      '..OSOWWWWWWWWWWWWWWWWWWWWWWOwO..',
+      '..OSOWWWBBBBBBBBBBBBBBBBWWWOwO..',
+      '..OSOWWWWWWWWWWWWWWWWWWWWWWOwO..',
+      '..OSOWWWWWWWWWBBBBWWWWWWWWWOwO..',
+      '..OSOWWWWWWWWWBBBBWWWWWWWWWOwO..',
+      '..OSOWWWWWWWWBBWWBBWWWWWWWWOwO..',
+      '..OSOWWWWWWWWBBWWBBWWWWWWWWOwO..',
+      '..OSOWWWWWWWWBBWWBBWWWWWWWWOwO..',
+      '..OSOOwwwwwwwwwwwwwwwwwwwwOOwO..',
+      '.OSSSOOOOOOOOOOOOOOOOOOOOOOSSSO.',
+      '.OOOOO......OObbbbOO......OOOOO.',
+      '...........OOOOOOOOOO...........',
+      '................................',
+      '................................',
+      '................................',
+      '................................',
     ],
   },
 };
@@ -259,7 +405,7 @@ export default function PetSprite({
     filter: lcdMode ? 'grayscale(100%) contrast(235%) brightness(84%)' : stickerOutline,
   };
 
-  // 시크릿 4종 전용 스프라이트 (기존 32x32 사이즈·스티커 아웃라인 동일 적용)
+  // 시크릿 4종 전용 32x32 고밀도 픽셀 아트
   if (SECRET_SPRITES[speciesId]) {
     return (
       <SecretPixelSprite
@@ -310,7 +456,6 @@ export default function PetSprite({
   // 2~4단계: 키드 / 청소년 / 성체 (세련된 2등신 전신 도트 32x32)
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" shapeRendering="crispEdges" style={transformStyle}>
-      {/* --- 뒷배경 꼬리 / 날개 / 아가미 파츠 --- */}
       {spec.ear === 'cat' && (
         <path fill={spec.accent || '#fde047'} d={frame === 0 ? 'M3 18h4v3H3v-3zm1-3h3v3H4v-3z' : 'M3 16h4v3H3v-3zm1-3h3v3H4v-3z'} />
       )}
@@ -321,7 +466,7 @@ export default function PetSprite({
         <path fill={spec.accent || '#cbd5e1'} d={frame === 0 ? 'M4 17h3v6H4v-6zm21 0h3v6h-3v-6z' : 'M3 15h4v5H3v-5zm22 0h4v5h-4v-5z'} />
       )}
       {spec.ear === 'dragon' && (
-        <path fill={spec.accent || '#38bdf8'} d={frame === 0 ? 'M2 14h5v6H2v-6zm23 0h5v6h-5v-6z' : 'M2 16h5v6h-5v-6zm23 0h5v6h-5v-6z'} />
+        <path fill={spec.accent || '#38bdf8'} d={frame === 0 ? 'M2 14h5v6H2v-6zm23 0h5v6h-5v-6z' : 'M2 16h5v6H2v-6zm23 0h5v6h-5v-6z'} />
       )}
       {spec.ear === 'mermaid' && (
         <path fill={spec.accent || '#fbcfe8'} d="M3 15h4v5H3v-5zm22 0h4v5h-4v-5zM11 26h10v2H11v-2zm-2 2h5v2H9v-2zm9 0h5v2h-5v-2z" />
@@ -330,7 +475,6 @@ export default function PetSprite({
         <path fill={spec.accent || '#f472b6'} d="M3 9h4v2H3V9zm0 4h4v2H3v-2zm22-4h4v2h-4V9zm0 4h4v2h-4v-2z" />
       )}
 
-      {/* --- 머리 위 귀 / 뿔 / 왕관 파츠 --- */}
       {spec.ear === 'cat' && (
         <>
           <path fill="#1e293b" d="M7 3h4v5H7V3zm14 0h4v5h-4V3z" />
@@ -418,12 +562,10 @@ export default function PetSprite({
         <path fill="#38bdf8" d="M15 0h2v6h-2V0z" />
       )}
 
-      {/* --- 2등신 머리 외곽선 (상단부) --- */}
       <path
         fill="#1e293b"
         d="M10 6h12v1h-12V6zM8 7h2v1H8V7zm14 0h2v1h-2V7zM7 8h1v2H7V8zm17 0h1v2h-1V8zM6 10h1v9H6v-9zm19 0h1v9h-1v-9zM7 19h2v1H7v-1zm16 0h2v1h-2v-1z"
       />
-      {/* --- 2등신 머리 채우기 & 입체 음영 --- */}
       <path
         fill={baseColor}
         d="M10 7h12v1h2v2h1v9h-2v1H9v-1H7v-9h1V8h2V7z"
@@ -431,16 +573,13 @@ export default function PetSprite({
       <path fill={lightColor} d="M10 8h6v2h-6V8z" />
       <path fill={shadowColor} d="M9 18h14v2H9v-2z" />
 
-      {/* 닌자 복면 / 펭귄 배 / 시크릿 물음표 */}
       {spec.ear === 'ninja' && <path fill="#fde68a" d="M9 11h14v5H9v-5z" />}
       {spec.ear === 'secret' && <path fill="#facc15" d="M14 10h4v1h-4v-1zm3 1h1v3h-1v-3zm-3 3h3v1h-3v-1zm0 2h2v2h-2v-2z" />}
 
-      {/* CPU 과부하 땀방울 */}
       {isOverheated && (
         <path fill="#0284c7" d={frame === 0 ? 'M26 6h2v4h-2V6z' : 'M26 8h2v4h-2V8z'} />
       )}
 
-      {/* --- 세련된 큰 눈망울 & 표정 --- */}
       {spec.ear !== 'secret' && (
         <>
           {isDragging ? (
@@ -457,10 +596,8 @@ export default function PetSprite({
             </>
           )}
 
-          {/* 볼터치 */}
           <path fill="#fb7185" d="M8 16h2v1H8v-1zm14 0h2v1h-2v-1z" />
 
-          {/* 입 */}
           {spec.ear === 'penguin' || spec.ear === 'parrot' ? (
             <path fill="#facc15" d="M14 15h4v2h-4v-2z" />
           ) : actionState === 'EAT' ? (
@@ -473,7 +610,6 @@ export default function PetSprite({
         </>
       )}
 
-      {/* --- 2등신 하단 몸통 + 짧은 팔 + 걷기 발 애니메이션 --- */}
       {spec.ear !== 'mermaid' && (
         <>
           <path fill="#1e293b" d="M10 20h12v6H10v-6z" />
@@ -483,7 +619,6 @@ export default function PetSprite({
             <path fill={spec.accent} d="M14 21h4v3h-4v-3z" />
           )}
 
-          {/* 양팔 */}
           {frame === 0 ? (
             <>
               <path fill="#1e293b" d="M7 21h3v3H7v-3zm15 0h3v3h-3v-3z" />
@@ -496,7 +631,6 @@ export default function PetSprite({
             </>
           )}
 
-          {/* 두 발 */}
           {frame === 0 ? (
             <path fill="#1e293b" d="M9 26h5v2H9v-2zm9 0h5v2h-5v-2z" />
           ) : (
