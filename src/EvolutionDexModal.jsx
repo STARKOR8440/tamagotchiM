@@ -1,23 +1,20 @@
 import React, { useState } from 'react';
 import PetSprite from './PetSprite';
-import { SPECIES } from './evolutionTree';
+import { SPECIES, SECRET_VARIANTS } from './evolutionTree';
 
 const OUTER_RING_IDS = [
-  // 상단 하늘 계열 (6종)
   'ADULT_PINK_CAT',
   'ADULT_STAR_BUNNY',
   'ADULT_OWL',
   'ADULT_SATURN',
   'ADULT_PARROT',
   'ADULT_ASTRONAUT',
-  // 우측·하단 바다 계열 (6종)
   'ADULT_DOLPHIN',
   'ADULT_RED_PANDA',
   'ADULT_RIBBON_DOG',
   'ADULT_HEART_BUNNY',
   'ADULT_AXOLOTL',
   'ADULT_PENGUIN',
-  // 좌측 대지 계열 (6종)
   'ADULT_GREEN_DOG',
   'ADULT_ROBO',
   'ADULT_MAMETCHI',
@@ -49,11 +46,11 @@ const LEGEND_IDS = [
 
 export default function EvolutionDexModal({
   unlockedSpecies = ['EGG'],
+  secretHistory = [],
   currentSpeciesId = 'EGG',
   careStats = { sky: 1, land: 1, water: 1 },
   onClose,
 }) {
-  // 현재 시크릿 변신 4종 중 하나라면 도감에서는 LEGEND_SECRET으로 포커스
   const activeDexId = SPECIES[currentSpeciesId]?.isSecretVariant
     ? 'LEGEND_SECRET'
     : currentSpeciesId;
@@ -62,7 +59,6 @@ export default function EvolutionDexModal({
     activeDexId === 'EGG' ? 'BABY_MARU' : activeDexId
   );
 
-  // 시크릿 변신 4종(isSecretVariant)은 도감 카운트에서 제외하여 총 35종 유지
   const visibleSpeciesList = Object.values(SPECIES).filter((s) => !s.isSecretVariant);
   const totalCount = visibleSpeciesList.length;
   const unlockedCount = visibleSpeciesList.filter((s) =>
@@ -74,7 +70,7 @@ export default function EvolutionDexModal({
 
   const getConditionText = (spec) => {
     if (spec.id === 'LEGEND_SECRET') {
-      return '★ 전설·히든 (올스탯 50↑ & 50승 · 시크릿 4종 랜덤 변신 + 전용 스킨)';
+      return `★ 전설·히든 (올스탯 50↑ & 50승 · 시크릿 변신 ${secretHistory.length}/4종 수집)`;
     }
     if (spec.isLegend) {
       return '★ 전설·히든 (올스탯 50↑ & 50승)';
@@ -111,7 +107,7 @@ export default function EvolutionDexModal({
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
-        gap: '10px',
+        gap: '9px',
         color: '#0f172a',
         userSelect: 'none',
       }}
@@ -159,7 +155,7 @@ export default function EvolutionDexModal({
           position: 'relative',
           width: '100%',
           aspectRatio: '1 / 1',
-          maxHeight: '320px',
+          maxHeight: '305px',
           margin: '0 auto',
           borderRadius: '20px',
           background: 'radial-gradient(circle, #ffffff 18%, #e0f2fe 72%, #bae6fd 100%)',
@@ -167,7 +163,6 @@ export default function EvolutionDexModal({
           overflow: 'hidden',
         }}
       >
-        {/* 방사형 연결선 SVG */}
         <svg
           width="100%"
           height="100%"
@@ -198,27 +193,10 @@ export default function EvolutionDexModal({
               />
             );
           })}
-          <circle
-            cx="150"
-            cy="150"
-            r="68"
-            fill="none"
-            stroke="#93c5fd"
-            strokeWidth="1.5"
-            strokeDasharray="3 3"
-          />
-          <circle
-            cx="150"
-            cy="150"
-            r="124"
-            fill="none"
-            stroke="#7dd3fc"
-            strokeWidth="1.5"
-            strokeDasharray="3 3"
-          />
+          <circle cx="150" cy="150" r="68" fill="none" stroke="#93c5fd" strokeWidth="1.5" strokeDasharray="3 3" />
+          <circle cx="150" cy="150" r="124" fill="none" stroke="#7dd3fc" strokeWidth="1.5" strokeDasharray="3 3" />
         </svg>
 
-        {/* 중앙 1단계 베이비 */}
         <NodeSlot
           id="BABY_MARU"
           xPct={50}
@@ -230,7 +208,6 @@ export default function EvolutionDexModal({
           onSelect={() => setSelectedId('BABY_MARU')}
         />
 
-        {/* 중간 2~3단계 9종 */}
         {INNER_RING_IDS.map((id, idx) => {
           const angle = ((idx * 360) / INNER_RING_IDS.length - 90) * (Math.PI / 180);
           const xPct = 50 + Math.cos(angle) * 22.5;
@@ -250,7 +227,6 @@ export default function EvolutionDexModal({
           );
         })}
 
-        {/* 외곽 4단계 성체 18종 */}
         {OUTER_RING_IDS.map((id, idx) => {
           const angle = ((idx * 360) / OUTER_RING_IDS.length - 90) * (Math.PI / 180);
           const xPct = 50 + Math.cos(angle) * 41.2;
@@ -321,6 +297,56 @@ export default function EvolutionDexModal({
           })}
         </div>
       </div>
+
+      {/* 시크릿 스페이스 선택 시 발견한 시크릿 4종 컬렉션 바 표시 */}
+      {selectedId === 'LEGEND_SECRET' && (
+        <div
+          style={{
+            background: '#f5f3ff',
+            border: '1.5px solid #c4b5fd',
+            borderRadius: '12px',
+            padding: '6px 10px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <span style={{ fontSize: '11px', fontWeight: '800', color: '#5b21b6' }}>
+            🎁 시크릿 컬렉션 ({secretHistory.length}/4)
+          </span>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            {SECRET_VARIANTS.map((secId) => {
+              const found = secretHistory.includes(secId);
+              return (
+                <div
+                  key={secId}
+                  title={found ? SPECIES[secId].name : '미발견 시크릿'}
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '8px',
+                    background: '#ffffff',
+                    border: found ? '1.5px solid #8b5cf6' : '1px dashed #cbd5e1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      transform: 'scale(0.28)',
+                      filter: found ? 'none' : 'brightness(0) opacity(0.25)',
+                    }}
+                  >
+                    <PetSprite speciesId={secId} lcdMode={false} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 하단 선택 캐릭터 정보 & 출현 조건 카드 */}
       <div
