@@ -9,11 +9,11 @@ import {
   checkEvolutionStatus,
   evolveCrossRandom,
   reincarnateAdult,
+  resolveSecretVariant,
 } from './evolutionTree';
 import { sfx } from './sound';
 
 const STORAGE_KEY = 'mobile_tamagotchi_pwa_v1';
-const SKIN_KEYS = Object.keys(SHELL_SKINS);
 const MENU_IDS = ['FEED', 'PLAY', 'CLEAN', 'SHOP', 'STATUS', 'DEX'];
 
 const getTodayStr = () => new Date().toISOString().slice(0, 10);
@@ -84,6 +84,33 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...pet, lastUpdated: Date.now() }));
   }, [pet]);
 
+  // 시크릿 캐릭터 등장 시 도감 및 보너스 스킨 자동 반영 헬퍼
+  const applyEvolvedState = (prev, nextSpeciesId) => {
+    const evolvedSpec = SPECIES[nextSpeciesId] || SPECIES.ADULT_MAMETCHI;
+    const dexKey = evolvedSpec.isSecretVariant ? 'LEGEND_SECRET' : nextSpeciesId;
+    const nextUnlockedSpecies = prev.unlockedSpecies?.includes(dexKey)
+      ? prev.unlockedSpecies
+      : [...(prev.unlockedSpecies || ['EGG']), dexKey];
+
+    let nextSkin = prev.skin;
+    let nextUnlockedSkins = prev.unlockedSkins || ['SODA_BLUE'];
+
+    if (evolvedSpec.bonusSkin) {
+      nextSkin = evolvedSpec.bonusSkin;
+      if (!nextUnlockedSkins.includes(evolvedSpec.bonusSkin)) {
+        nextUnlockedSkins = [...nextUnlockedSkins, evolvedSpec.bonusSkin];
+      }
+    }
+
+    return {
+      speciesId: nextSpeciesId,
+      unlockedSpecies: nextUnlockedSpecies,
+      skin: nextSkin,
+      unlockedSkins: nextUnlockedSkins,
+      evolvedSpec,
+    };
+  };
+
   // 1초 게임 루프
   useEffect(() => {
     const loop = setInterval(() => {
@@ -91,19 +118,31 @@ export default function App() {
         const nextAge = prev.ageSeconds + 1;
         const currentSpec = SPECIES[prev.speciesId] || SPECIES.EGG;
         const nextAdultSec = currentSpec.stage === 'ADULT' ? (prev.adultSeconds || 0) + 1 : 0;
-        let nextSpeciesId = prev.speciesId;
-        let nextUnlocked = prev.unlockedSpecies || ['EGG'];
+
+        let evolvedPatch = {
+          speciesId: prev.speciesId,
+          unlockedSpecies: prev.unlockedSpecies || ['EGG'],
+          skin: prev.skin,
+          unlockedSkins: prev.unlockedSkins || ['SODA_BLUE'],
+        };
 
         const evoStatus = checkEvolutionStatus({ ...prev, ageSeconds: nextAge });
         if (evoStatus.ready) {
-          nextSpeciesId = evolveCrossRandom(currentSpec.stage, prev.careStats, prev);
-          const evolvedSpec = SPECIES[nextSpeciesId];
-          if (!nextUnlocked.includes(nextSpeciesId)) {
-            nextUnlocked = [...nextUnlocked, nextSpeciesId];
-          }
+          const nextSpeciesId = evolveCrossRandom(currentSpec.stage, prev.careStats, prev);
+          const applied = applyEvolvedState(prev, nextSpeciesId);
+          evolvedPatch = {
+            speciesId: applied.speciesId,
+            unlockedSpecies: applied.unlockedSpecies,
+            skin: applied.skin,
+            unlockedSkins: applied.unlockedSkins,
+          };
           sfx.evolve();
           triggerAction('HAPPY');
-          triggerReaction(`${evolvedSpec.name} 진화! ✨`);
+          triggerReaction(
+            applied.evolvedSpec.bonusSkin
+              ? `시크릿! ${applied.evolvedSpec.name} + 전용스킨! 🎁`
+              : `${applied.evolvedSpec.name} 진화! ✨`
+          );
         } else if (evoStatus.reason && Date.now() - lastHintAlertRef.current > 45000) {
           triggerReaction(evoStatus.reason);
           lastHintAlertRef.current = Date.now();
@@ -117,10 +156,9 @@ export default function App() {
 
           return {
             ...prev,
+            ...evolvedPatch,
             ageSeconds: nextAge,
             adultSeconds: nextAdultSec,
-            speciesId: nextSpeciesId,
-            unlockedSpecies: nextUnlocked,
             energy: nextEnergy,
             hunger: Math.max(0, prev.hunger - 1),
             happiness: Math.max(0, prev.happiness - 1),
@@ -131,10 +169,9 @@ export default function App() {
 
         return {
           ...prev,
+          ...evolvedPatch,
           ageSeconds: nextAge,
           adultSeconds: nextAdultSec,
-          speciesId: nextSpeciesId,
-          unlockedSpecies: nextUnlocked,
           energy: nextEnergy,
         };
       });
@@ -157,7 +194,7 @@ export default function App() {
 
   const triggerReaction = (text) => {
     setReaction(text);
-    setTimeout(() => setReaction(''), 2200);
+    setTimeout(() => setReaction(''), 2500);
   };
 
   const triggerAction = (state) => {
@@ -172,7 +209,11 @@ export default function App() {
     if (!nextMuted) sfx.beep();
   };
 
-  // 히든 치트 커맨드 3종
+  // 히든 치트 커맨드 4종
+  // 1) A-A-B-B-C : +500코인 & 풀충전
+  // 2) B-B-A-C-C : 올스탯 +50 & 50승 & +2000코인 (전설 조건 즉시 충족)
+  // 3) C-C-A-B-B : 다음 단계 진화 / 성체 환생
+  // 4) A-C-A-C-B : 시크릿 4종 캐릭터 & 보너스 스킨 즉시 소환!
   const recordCheatInput = (btn) => {
     const nextSeq = [...cheatSeqRef.current, btn].slice(-5);
     cheatSeqRef.current = nextSeq;
@@ -201,57 +242,71 @@ export default function App() {
       setPet((p) => ({
         ...p,
         coins: (p.coins || 0) + 2000,
+        gameWins: Math.max(50, (p.gameWins || 0) + 50),
         energy: 100,
         careStats: {
-          sky: (p.careStats?.sky || 1) + 5,
-          land: (p.careStats?.land || 1) + 5,
-          water: (p.careStats?.water || 1) + 5,
+          sky: Math.max(50, (p.careStats?.sky || 1) + 50),
+          land: Math.max(50, (p.careStats?.land || 1) + 50),
+          water: Math.max(50, (p.careStats?.water || 1) + 50),
         },
       }));
       setLcdScreen('PET');
       setShowDex(false);
       setShowGuide(false);
-      triggerReaction('아이템 치트! +2000🪙 & 올스탯+5 🔮');
+      triggerReaction('전설 조건 달성! 올스탯50 & 50승 🔮');
       return true;
     }
 
     if (code === 'CCABB') {
       cheatSeqRef.current = [];
       const currentSpec = SPECIES[pet.speciesId] || SPECIES.EGG;
-
       const nextSpeciesId =
         currentSpec.stage === 'ADULT'
-          ? reincarnateAdult(pet.speciesId, pet.careStats, pet.unlockedSpecies)
-          : evolveCrossRandom(currentSpec.stage, pet.careStats, {
-              ...pet,
-              gameWins: Math.max(5, pet.gameWins || 0),
-              hunger: 100,
-              happiness: 100,
-            });
+          ? reincarnateAdult(pet.speciesId, pet.careStats, pet.unlockedSpecies, pet.gameWins || 0)
+          : evolveCrossRandom(currentSpec.stage, pet.careStats, pet);
 
-      const evolvedSpec = SPECIES[nextSpeciesId];
+      const applied = applyEvolvedState(pet, nextSpeciesId);
       sfx.evolve();
       triggerAction('HAPPY');
       setPet((p) => ({
         ...p,
-        speciesId: nextSpeciesId,
+        ...applied,
         hunger: 100,
         happiness: 100,
         cleanliness: 100,
         energy: 100,
         poopCount: 0,
-        unlockedSpecies: p.unlockedSpecies?.includes(nextSpeciesId)
-          ? p.unlockedSpecies
-          : [...(p.unlockedSpecies || ['EGG']), nextSpeciesId],
       }));
       setLcdScreen('PET');
       setShowDex(false);
       setShowGuide(false);
       triggerReaction(
-        currentSpec.stage === 'ADULT'
-          ? `성체 환생! ${evolvedSpec.name} 🔮`
-          : `치트 진화! ${evolvedSpec.name} ✨`
+        applied.evolvedSpec.bonusSkin
+          ? `시크릿! ${applied.evolvedSpec.name} + 전용스킨! 🎁`
+          : `치트 진화! ${applied.evolvedSpec.name} ✨`
       );
+      return true;
+    }
+
+    if (code === 'ACACB') {
+      cheatSeqRef.current = [];
+      const nextSecretId = resolveSecretVariant(pet.speciesId);
+      const applied = applyEvolvedState(pet, nextSecretId);
+      sfx.evolve();
+      triggerAction('HAPPY');
+      setPet((p) => ({
+        ...p,
+        ...applied,
+        hunger: 100,
+        happiness: 100,
+        cleanliness: 100,
+        energy: 100,
+        poopCount: 0,
+      }));
+      setLcdScreen('PET');
+      setShowDex(false);
+      setShowGuide(false);
+      triggerReaction(`시크릿 소환! ${applied.evolvedSpec.name} + 전용스킨 🎁`);
       return true;
     }
 
@@ -403,21 +458,27 @@ export default function App() {
       return;
     }
 
-    const nextSpeciesId = reincarnateAdult(pet.speciesId, pet.careStats, pet.unlockedSpecies);
-    const nextSpec = SPECIES[nextSpeciesId];
+    const nextSpeciesId = reincarnateAdult(
+      pet.speciesId,
+      pet.careStats,
+      pet.unlockedSpecies,
+      pet.gameWins || 0
+    );
+    const applied = applyEvolvedState(pet, nextSpeciesId);
 
     sfx.evolve();
     triggerAction('HAPPY');
     setPet((p) => ({
       ...p,
+      ...applied,
       coins: p.coins - price,
-      speciesId: nextSpeciesId,
-      unlockedSpecies: p.unlockedSpecies?.includes(nextSpeciesId)
-        ? p.unlockedSpecies
-        : [...(p.unlockedSpecies || ['EGG']), nextSpeciesId],
     }));
     setLcdScreen('PET');
-    triggerReaction(`${nextSpec.name}(으)로 환생 완료! 🔮✨`);
+    triggerReaction(
+      applied.evolvedSpec.bonusSkin
+        ? `시크릿 환생! ${applied.evolvedSpec.name} + 전용스킨 🎁`
+        : `${applied.evolvedSpec.name}(으)로 환생 완료! 🔮✨`
+    );
   };
 
   const executeMenuAction = (type) => {
@@ -505,7 +566,14 @@ export default function App() {
   const currentHour = new Date().getHours();
   const isSleeping = currentHour >= 23 || currentHour < 6;
   const canGraduate = currentSpec.stage === 'ADULT' && (pet.adultSeconds || 0) >= 86400;
-  const pagedSkins = SKIN_KEYS.slice(skinPage * 4, skinPage * 4 + 4);
+
+  // 상점 스킨 목록: 기본 8종 + 이미 해금한 시크릿 보너스 스킨
+  const availableShopSkins = Object.keys(SHELL_SKINS).filter(
+    (k) => !SHELL_SKINS[k].isSecret || pet.unlockedSkins?.includes(k)
+  );
+  const totalSkinPages = Math.ceil(availableShopSkins.length / 4);
+  const safeSkinPage = skinPage >= totalSkinPages ? 0 : skinPage;
+  const pagedSkins = availableShopSkins.slice(safeSkinPage * 4, safeSkinPage * 4 + 4);
 
   return (
     <div
@@ -657,7 +725,7 @@ export default function App() {
                       cursor: 'pointer',
                     }}
                   >
-                    스킨(8)
+                    스킨({availableShopSkins.length})
                   </button>
                   <button
                     onClick={() => { sfx.beep(); setShopTab('ITEM'); }}
@@ -703,7 +771,7 @@ export default function App() {
                       })}
                     </div>
                     <button
-                      onClick={() => { sfx.beep(); setSkinPage((p) => (p === 0 ? 1 : 0)); }}
+                      onClick={() => { sfx.beep(); setSkinPage((p) => (p + 1) % totalSkinPages); }}
                       style={{
                         width: '100%',
                         background: 'rgba(15,23,42,0.14)',
@@ -715,7 +783,7 @@ export default function App() {
                         color: '#0f172a',
                       }}
                     >
-                      {skinPage === 0 ? '다음 스킨 ▶ (1/2)' : '◀ 이전 스킨 (2/2)'}
+                      다음 스킨 ▶ ({safeSkinPage + 1}/{totalSkinPages})
                     </button>
                   </div>
                 ) : (
@@ -823,7 +891,6 @@ export default function App() {
                       bottom: 0,
                       right: -12,
                       fontSize: '12px',
-                      filter: 'grayscale(100%) contrast(180%)',
                     }}
                   >
                     {'💩'.repeat(pet.poopCount)}
