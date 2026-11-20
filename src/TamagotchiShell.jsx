@@ -130,7 +130,7 @@ export const SHELL_SKINS = {
     patternSize: '42px 42px',
   },
 
-  // 시크릿 히든 전용 4종 콜라보 스킨 (상점 미판매, 시크릿 캐릭터 등장 시 자동 해금)
+  // 시크릿 히든 전용 4종 콜라보 스킨
   SECRET_TOYSTORY: {
     id: 'SECRET_TOYSTORY',
     name: '토이스토리',
@@ -213,6 +213,7 @@ const MENU_ICONS = [
 export default function TamagotchiShell({
   skinKey,
   coins = 0,
+  isSleeping = false,
   selectedMenuIdx,
   onPressA,
   onPressB,
@@ -234,6 +235,42 @@ export default function TamagotchiShell({
         userSelect: 'none',
       }}
     >
+      {/* 그로구 에디션 전용 바디 외부 돌출 귀 몰드 */}
+      {skinKey === 'SECRET_GROGU' && (
+        <>
+          <div
+            style={{
+              position: 'absolute',
+              top: '76px',
+              left: '-24px',
+              width: '44px',
+              height: '22px',
+              background: '#86efac',
+              border: '3px solid #15803d',
+              borderRadius: '18px 4px 4px 18px',
+              transform: 'rotate(-14deg)',
+              boxShadow: 'inset 0 4px 4px #fbcfe8',
+              zIndex: 1,
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              top: '76px',
+              right: '-24px',
+              width: '44px',
+              height: '22px',
+              background: '#86efac',
+              border: '3px solid #15803d',
+              borderRadius: '4px 18px 18px 4px',
+              transform: 'rotate(14deg)',
+              boxShadow: 'inset 0 4px 4px #fbcfe8',
+              zIndex: 1,
+            }}
+          />
+        </>
+      )}
+
       {/* 좌측 상단 안테나 */}
       <div
         style={{
@@ -288,51 +325,57 @@ export default function TamagotchiShell({
           zIndex: 2,
         }}
       >
-        {/* 시크릿 스킨 전용 커스텀 아트 오버레이 4종 */}
+        {/* 시크릿 스킨 4종 고밀도 SVG 아트 오버레이 */}
         {skinKey === 'SECRET_TOYSTORY' && (
           <svg width="236" height="284" viewBox="0 0 236 284" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 0 }}>
-            <ellipse cx="42" cy="70" rx="22" ry="11" fill="#ffffff" opacity="0.88" />
-            <circle cx="34" cy="64" r="9" fill="#ffffff" opacity="0.88" />
-            <circle cx="48" cy="64" r="8" fill="#ffffff" opacity="0.88" />
-            <ellipse cx="192" cy="76" rx="22" ry="11" fill="#ffffff" opacity="0.88" />
-            <circle cx="184" cy="70" r="8" fill="#ffffff" opacity="0.88" />
-            <circle cx="198" cy="70" r="9" fill="#ffffff" opacity="0.88" />
-            <ellipse cx="38" cy="185" rx="20" ry="10" fill="#ffffff" opacity="0.85" />
-            <ellipse cx="196" cy="185" rx="20" ry="10" fill="#ffffff" opacity="0.85" />
-            <polygon points="118,225 121,233 130,233 123,238 125,246 118,241 111,246 113,238 106,233 115,233" fill="#facc15" stroke="#b45309" strokeWidth="1.2" />
+            <ellipse cx="42" cy="70" rx="22" ry="11" fill="#ffffff" opacity="0.9" />
+            <circle cx="34" cy="64" r="9" fill="#ffffff" opacity="0.9" />
+            <circle cx="48" cy="64" r="8" fill="#ffffff" opacity="0.9" />
+            <ellipse cx="192" cy="76" rx="22" ry="11" fill="#ffffff" opacity="0.9" />
+            <circle cx="184" cy="70" r="8" fill="#ffffff" opacity="0.9" />
+            <circle cx="198" cy="70" r="9" fill="#ffffff" opacity="0.9" />
+            <ellipse cx="38" cy="185" rx="20" ry="10" fill="#ffffff" opacity="0.88" />
+            <ellipse cx="196" cy="185" rx="20" ry="10" fill="#ffffff" opacity="0.88" />
+            <polygon points="118,224 122,233 132,233 124,239 127,248 118,242 109,248 112,239 104,233 114,233" fill="#facc15" stroke="#b45309" strokeWidth="1.5" />
           </svg>
         )}
 
         {skinKey === 'SECRET_GROGU' && (
           <svg width="236" height="284" viewBox="0 0 236 284" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 0 }}>
-            <path d="M 10 95 L 44 105 L 40 132 L 8 112 Z" fill="#fbcfe8" stroke="#15803d" strokeWidth="2" />
-            <path d="M 226 95 L 192 105 L 196 132 L 228 112 Z" fill="#fbcfe8" stroke="#15803d" strokeWidth="2" />
-            <path d="M 18 205 Q 118 225 218 205 L 218 284 L 18 284 Z" fill="#d6d3d1" stroke="#78716c" strokeWidth="2" />
+            <circle cx="96" cy="48" r="7" fill="#0f172a" />
+            <circle cx="94" cy="46" r="2.2" fill="#ffffff" />
+            <circle cx="140" cy="48" r="7" fill="#0f172a" />
+            <circle cx="138" cy="46" r="2.2" fill="#ffffff" />
+            <path d="M 18 205 Q 118 228 218 205 L 218 284 L 18 284 Z" fill="#e7e5e4" stroke="#78716c" strokeWidth="2.2" />
+            <path d="M 55 212 L 118 232 L 181 212" fill="none" stroke="#a8a29e" strokeWidth="3" />
           </svg>
         )}
 
         {skinKey === 'SECRET_KITTY' && (
           <svg width="236" height="284" viewBox="0 0 236 284" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 0 }}>
-            <ellipse cx="176" cy="46" rx="13" ry="9" fill="#ef4444" stroke="#991b1b" strokeWidth="1.5" transform="rotate(-20 176 46)" />
-            <ellipse cx="196" cy="54" rx="13" ry="9" fill="#ef4444" stroke="#991b1b" strokeWidth="1.5" transform="rotate(-20 196 54)" />
-            <circle cx="186" cy="50" r="5" fill="#facc15" stroke="#991b1b" strokeWidth="1.5" />
-            <path d="M 32 165 C 24 156, 12 164, 22 175 L 32 184 L 42 175 C 52 164, 40 156, 32 165 Z" fill="#f43f5e" opacity="0.8" />
-            <path d="M 204 165 C 196 156, 184 164, 194 175 L 204 184 L 214 175 C 224 164, 212 156, 204 165 Z" fill="#f43f5e" opacity="0.8" />
+            <ellipse cx="176" cy="44" rx="14" ry="10" fill="#ef4444" stroke="#991b1b" strokeWidth="1.8" transform="rotate(-20 176 44)" />
+            <ellipse cx="196" cy="52" rx="14" ry="10" fill="#ef4444" stroke="#991b1b" strokeWidth="1.8" transform="rotate(-20 196 52)" />
+            <circle cx="186" cy="48" r="5.5" fill="#facc15" stroke="#991b1b" strokeWidth="1.5" />
+            <path d="M 32 165 C 24 156, 12 164, 22 175 L 32 184 L 42 175 C 52 164, 40 156, 32 165 Z" fill="#f43f5e" opacity="0.85" />
+            <path d="M 204 165 C 196 156, 184 164, 194 175 L 204 184 L 214 175 C 224 164, 212 156, 204 165 Z" fill="#f43f5e" opacity="0.85" />
+            <circle cx="48" cy="212" r="5" fill="#facc15" />
+            <circle cx="188" cy="212" r="5" fill="#facc15" />
           </svg>
         )}
 
         {skinKey === 'SECRET_R2D2' && (
           <svg width="236" height="284" viewBox="0 0 236 284" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 0 }}>
-            <rect x="24" y="42" width="188" height="14" rx="4" fill="#1d4ed8" />
-            <circle cx="118" cy="49" r="9" fill="#0f172a" stroke="#94a3b8" strokeWidth="2" />
-            <circle cx="115" cy="46" r="2.5" fill="#38bdf8" />
-            <rect x="18" y="130" width="14" height="54" rx="4" fill="#2563eb" />
-            <rect x="204" y="130" width="14" height="54" rx="4" fill="#2563eb" />
-            <rect x="75" y="255" width="86" height="12" rx="4" fill="#1d4ed8" />
+            <rect x="20" y="38" width="196" height="16" rx="4" fill="#1d4ed8" />
+            <circle cx="118" cy="46" r="10" fill="#0f172a" stroke="#94a3b8" strokeWidth="2.2" />
+            <circle cx="115" cy="43" r="3" fill="#38bdf8" />
+            <circle cx="144" cy="59" r="3.5" fill="#ef4444" />
+            <rect x="16" y="124" width="16" height="64" rx="4" fill="#2563eb" stroke="#1e3a8a" strokeWidth="1.5" />
+            <rect x="204" y="124" width="16" height="64" rx="4" fill="#2563eb" stroke="#1e3a8a" strokeWidth="1.5" />
+            <rect x="70" y="255" width="96" height="14" rx="4" fill="#1d4ed8" />
           </svg>
         )}
 
-        {/* 기존 커스텀 아트 오버레이 5종 유지 */}
+        {/* 기존 커스텀 아트 오버레이 5종 */}
         {skinKey === 'PINK_ICE' && (
           <svg width="236" height="284" viewBox="0 0 236 284" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 0 }}>
             <polygon points="34,42 74,26 84,56 42,74" fill="#fbcfe8" opacity="0.68" />
@@ -456,12 +499,12 @@ export default function TamagotchiShell({
             zIndex: 2,
           }}
         >
-          {/* LCD 액정 화면 */}
+          {/* LCD 액정 화면 (야간 수면 모드 지원) */}
           <div
             style={{
               width: '100%',
               height: '100%',
-              background: skin.lcdBg,
+              background: isSleeping ? '#94a3b8' : skin.lcdBg,
               border: '2px solid #64748b',
               borderRadius: '6px',
               boxShadow: 'inset 2px 2px 6px rgba(0,0,0,0.28)',
@@ -535,7 +578,9 @@ export default function TamagotchiShell({
                 color: '#1e293b',
               }}
             >
-              <span>[{MENU_ICONS[selectedMenuIdx].label}]</span>
+              <span>
+                [{MENU_ICONS[selectedMenuIdx].label}] {isSleeping ? '🌙' : ''}
+              </span>
               <span>🪙{coins}</span>
             </div>
           </div>
