@@ -4,6 +4,7 @@ import MiniGame from './MiniGame';
 import TamagotchiShell, { SHELL_SKINS } from './TamagotchiShell';
 import EvolutionDexModal from './EvolutionDexModal';
 import GuideModal from './GuideModal';
+import ShareCardModal from './ShareCardModal';
 import {
   SPECIES,
   checkEvolutionStatus,
@@ -27,6 +28,7 @@ const INITIAL_STATE = {
   ageSeconds: 0,
   adultSeconds: 0,
   gameWins: 0,
+  winStreak: 0,
   coins: 50,
   digestUntil: 0,
   snacksToday: 0,
@@ -36,6 +38,7 @@ const INITIAL_STATE = {
   unlockedSkins: ['SODA_BLUE'],
   careStats: { sky: 1, land: 1, water: 1 },
   unlockedSpecies: ['EGG'],
+  secretHistory: [],
 };
 
 export default function App() {
@@ -70,6 +73,7 @@ export default function App() {
   const [selectedMenuIdx, setSelectedMenuIdx] = useState(0);
   const [showDex, setShowDex] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [showShare, setShowShare] = useState(false);
   const [actionState, setActionState] = useState('IDLE');
   const [isMuted, setIsMuted] = useState(false);
 
@@ -84,13 +88,18 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...pet, lastUpdated: Date.now() }));
   }, [pet]);
 
-  // 시크릿 캐릭터 등장 시 도감 및 보너스 스킨 자동 반영 헬퍼
+  // 시크릿 캐릭터 등장 시 도감, 시크릿 컬렉션 기록, 전용 스킨 자동 적용
   const applyEvolvedState = (prev, nextSpeciesId) => {
     const evolvedSpec = SPECIES[nextSpeciesId] || SPECIES.ADULT_MAMETCHI;
     const dexKey = evolvedSpec.isSecretVariant ? 'LEGEND_SECRET' : nextSpeciesId;
     const nextUnlockedSpecies = prev.unlockedSpecies?.includes(dexKey)
       ? prev.unlockedSpecies
       : [...(prev.unlockedSpecies || ['EGG']), dexKey];
+
+    let nextSecretHistory = prev.secretHistory || [];
+    if (evolvedSpec.isSecretVariant && !nextSecretHistory.includes(nextSpeciesId)) {
+      nextSecretHistory = [...nextSecretHistory, nextSpeciesId];
+    }
 
     let nextSkin = prev.skin;
     let nextUnlockedSkins = prev.unlockedSkins || ['SODA_BLUE'];
@@ -105,6 +114,7 @@ export default function App() {
     return {
       speciesId: nextSpeciesId,
       unlockedSpecies: nextUnlockedSpecies,
+      secretHistory: nextSecretHistory,
       skin: nextSkin,
       unlockedSkins: nextUnlockedSkins,
       evolvedSpec,
@@ -122,6 +132,7 @@ export default function App() {
         let evolvedPatch = {
           speciesId: prev.speciesId,
           unlockedSpecies: prev.unlockedSpecies || ['EGG'],
+          secretHistory: prev.secretHistory || [],
           skin: prev.skin,
           unlockedSkins: prev.unlockedSkins || ['SODA_BLUE'],
         };
@@ -133,6 +144,7 @@ export default function App() {
           evolvedPatch = {
             speciesId: applied.speciesId,
             unlockedSpecies: applied.unlockedSpecies,
+            secretHistory: applied.secretHistory,
             skin: applied.skin,
             unlockedSkins: applied.unlockedSkins,
           };
@@ -210,10 +222,6 @@ export default function App() {
   };
 
   // 히든 치트 커맨드 4종
-  // 1) A-A-B-B-C : +500코인 & 풀충전
-  // 2) B-B-A-C-C : 올스탯 +50 & 50승 & +2000코인 (전설 조건 즉시 충족)
-  // 3) C-C-A-B-B : 다음 단계 진화 / 성체 환생
-  // 4) A-C-A-C-B : 시크릿 4종 캐릭터 & 보너스 스킨 즉시 소환!
   const recordCheatInput = (btn) => {
     const nextSeq = [...cheatSeqRef.current, btn].slice(-5);
     cheatSeqRef.current = nextSeq;
@@ -313,15 +321,25 @@ export default function App() {
     return false;
   };
 
+  // 완전 초기화 vs 2세대 알 계승 분리
   const startNextGeneration = (isHardReset = false) => {
     sfx.confirm();
-    setPet((prev) => ({
-      ...INITIAL_STATE,
-      coins: isHardReset ? 50 : prev.coins + 50,
-      skin: prev.skin,
-      unlockedSkins: prev.unlockedSkins,
-      unlockedSpecies: prev.unlockedSpecies,
-    }));
+    if (isHardReset) {
+      setPet({
+        ...INITIAL_STATE,
+        snackDate: getTodayStr(),
+      });
+    } else {
+      setPet((prev) => ({
+        ...INITIAL_STATE,
+        snackDate: getTodayStr(),
+        coins: prev.coins + 50,
+        skin: prev.skin,
+        unlockedSkins: prev.unlockedSkins,
+        unlockedSpecies: prev.unlockedSpecies,
+        secretHistory: prev.secretHistory || [],
+      }));
+    }
     setLcdScreen('PET');
     setShowDex(false);
     setShowGuide(false);
@@ -567,7 +585,6 @@ export default function App() {
   const isSleeping = currentHour >= 23 || currentHour < 6;
   const canGraduate = currentSpec.stage === 'ADULT' && (pet.adultSeconds || 0) >= 86400;
 
-  // 상점 스킨 목록: 기본 8종 + 이미 해금한 시크릿 보너스 스킨
   const availableShopSkins = Object.keys(SHELL_SKINS).filter(
     (k) => !SHELL_SKINS[k].isSecret || pet.unlockedSkins?.includes(k)
   );
@@ -594,10 +611,11 @@ export default function App() {
       <div
         style={{
           width: '100%',
-          maxWidth: '400px',
+          maxWidth: '420px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          gap: '6px',
           zIndex: 10,
         }}
       >
@@ -605,22 +623,35 @@ export default function App() {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
+            gap: '5px',
             background: '#ffffff',
             border: '1.5px solid #bae6fd',
             borderRadius: '20px',
-            padding: '5px 12px',
+            padding: '5px 10px',
             color: '#0f172a',
-            fontSize: '13px',
+            fontSize: '12px',
             fontWeight: '800',
             boxShadow: '0 2px 6px rgba(15, 23, 42, 0.06)',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
           }}
         >
           <span style={{ color: '#0284c7' }}>●</span>
           <span>{currentSpec.name}</span>
         </div>
 
-        <div style={{ display: 'flex', gap: '6px' }}>
+        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+          <button
+            onClick={() => {
+              sfx.confirm();
+              setShowShare(true);
+            }}
+            style={topBtnStyle}
+            title="인증샷 저장 및 공유"
+          >
+            📸 자랑
+          </button>
           <button
             onClick={() => {
               sfx.confirm();
@@ -635,13 +666,13 @@ export default function App() {
           </button>
           <button
             onClick={() => {
-              if (window.confirm('현재 캐릭터를 초기화하고 새 알부터 시작할까요?')) {
+              if (window.confirm('현재 캐릭터와 스킨을 초기화하고 새 알부터 시작할까요?')) {
                 startNextGeneration(true);
               }
             }}
             style={topBtnStyle}
           >
-            🔄 초기화
+            🔄
           </button>
         </div>
       </div>
@@ -667,6 +698,7 @@ export default function App() {
           <TamagotchiShell
             skinKey={pet.skin}
             coins={pet.coins}
+            isSleeping={isSleeping}
             selectedMenuIdx={selectedMenuIdx}
             onPressA={handlePressA}
             onPressB={handlePressB}
@@ -690,20 +722,20 @@ export default function App() {
 
             {lcdScreen === 'GAME' && (
               <MiniGame
-                onFinish={(bonus, msg, customCoins) => {
-                  const isWin = bonus >= 20;
-                  const earnedCoins = customCoins ?? (isWin ? 15 : 5);
+                winStreak={pet.winStreak || 0}
+                onFinish={(bonus, msg, customCoins, bonusWins, isWin) => {
                   setPet((p) => ({
                     ...p,
                     energy: Math.max(0, (p.energy ?? 100) - 20),
                     happiness: Math.min(100, p.happiness + bonus),
-                    coins: p.coins + earnedCoins,
-                    gameWins: (p.gameWins || 0) + (isWin ? 1 : 0),
+                    coins: p.coins + customCoins,
+                    gameWins: (p.gameWins || 0) + bonusWins,
+                    winStreak: isWin ? (p.winStreak || 0) + 1 : 0,
                     careStats: { ...p.careStats, sky: (p.careStats?.sky || 1) + (isWin ? 2 : 1) },
                   }));
                   triggerAction('HAPPY');
                   setLcdScreen('PET');
-                  triggerReaction(`${msg} +${earnedCoins}🪙`);
+                  triggerReaction(`${msg} +${customCoins}🪙`);
                 }}
                 onClose={() => setLcdScreen('PET')}
               />
@@ -864,7 +896,7 @@ export default function App() {
                     style={{
                       fontSize: '8.5px',
                       color: '#0f172a',
-                      background: 'rgba(255,255,255,0.72)',
+                      background: 'rgba(255,255,255,0.82)',
                       border: '1px solid rgba(15,23,42,0.2)',
                       padding: '1px 5px',
                       borderRadius: '4px',
@@ -902,6 +934,17 @@ export default function App() {
         </div>
       </div>
 
+      {/* 인증샷 카드 모달 */}
+      {showShare && (
+        <ShareCardModal
+          pet={pet}
+          onClose={() => {
+            sfx.beep();
+            setShowShare(false);
+          }}
+        />
+      )}
+
       {/* 사용 가이드 모달 */}
       {showGuide && (
         <GuideModal
@@ -928,6 +971,7 @@ export default function App() {
         >
           <EvolutionDexModal
             unlockedSpecies={pet.unlockedSpecies}
+            secretHistory={pet.secretHistory || []}
             currentSpeciesId={pet.speciesId}
             careStats={pet.careStats}
             onClose={() => {
@@ -975,9 +1019,9 @@ const topBtnStyle = {
   border: '1.5px solid #cbd5e1',
   borderRadius: '10px',
   color: '#0f172a',
-  fontSize: '11.5px',
+  fontSize: '11px',
   fontWeight: '800',
-  padding: '5px 10px',
+  padding: '5px 8px',
   cursor: 'pointer',
   boxShadow: '0 2px 5px rgba(15, 23, 42, 0.06)',
 };
