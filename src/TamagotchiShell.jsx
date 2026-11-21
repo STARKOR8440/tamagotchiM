@@ -130,7 +130,7 @@ export const SHELL_SKINS = {
     patternSize: '42px 42px',
   },
 
-  // 시크릿 히든 전용 4종 콜라보 스킨
+  // 시크릿 히든 전용 5종 콜라보 스킨
   SECRET_TOYSTORY: {
     id: 'SECRET_TOYSTORY',
     name: '토이스토리',
@@ -198,6 +198,24 @@ export const SHELL_SKINS = {
     btnBorder: '#1e3a8a',
     pattern: 'repeating-linear-gradient(90deg, rgba(37,99,235,0.12) 0px, rgba(37,99,235,0.12) 8px, transparent 8px, transparent 24px)',
     patternSize: '32px 32px',
+  },
+  // 5번째 시크릿 스킨: 피너츠 스누피 에디션 (7386.jpg 기반)
+  SECRET_PEANUTS: {
+    id: 'SECRET_PEANUTS',
+    name: '피너츠 에디션',
+    price: 0,
+    isSecret: true,
+    bodyBg: 'radial-gradient(circle at 38% 25%, #fef08a 0%, #facc15 58%, #eab308 100%)',
+    border: '#ca8a04',
+    antenna: '#facc15',
+    irPort: '#1e293b',
+    bezelBg: '#1e293b',
+    bezelBorder: '#0f172a',
+    lcdBg: '#fefce8',
+    btnColor: '#1e293b',
+    btnBorder: '#0f172a',
+    pattern: 'radial-gradient(rgba(255,255,255,0.35) 12%, transparent 13%)',
+    patternSize: '34px 34px',
   },
 };
 
@@ -325,7 +343,31 @@ export default function TamagotchiShell({
           zIndex: 2,
         }}
       >
-        {/* 시크릿 스킨 4종 고밀도 SVG 아트 오버레이 */}
+        {/* 피너츠 에디션(SECRET_PEANUTS) 전용 커스텀 코믹 아트 오버레이 */}
+        {skinKey === 'SECRET_PEANUTS' && (
+          <svg width="236" height="284" viewBox="0 0 236 284" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 0 }}>
+            {/* 중앙 크림 화이트 원형 일러스트 패널 */}
+            <ellipse cx="118" cy="146" rx="94" ry="114" fill="#fffbeb" stroke="#d97706" strokeWidth="2.5" />
+            {/* 상단 스누피 & 우드스탁 스케치 포인트 */}
+            <ellipse cx="136" cy="54" rx="14" ry="9" fill="#ffffff" stroke="#1e293b" strokeWidth="1.8" />
+            <ellipse cx="147" cy="57" rx="4.5" ry="8" fill="#1e293b" transform="rotate(15 147 57)" />
+            <circle cx="123" cy="52" r="2.2" fill="#1e293b" />
+            {/* 좌측 우드스탁 */}
+            <circle cx="94" cy="54" r="5" fill="#facc15" stroke="#1e293b" strokeWidth="1.4" />
+            <path d="M 91 48 L 93 43 M 95 48 L 98 44" stroke="#1e293b" strokeWidth="1.4" />
+            {/* 좌우 코믹 캐릭터 실루엣 라인 */}
+            <circle cx="34" cy="126" r="10" fill="none" stroke="#1e293b" strokeWidth="1.5" />
+            <path d="M 28 124 Q 34 129 40 124" fill="none" stroke="#1e293b" strokeWidth="1.4" />
+            <circle cx="34" cy="176" r="10" fill="none" stroke="#1e293b" strokeWidth="1.5" />
+            <path d="M 29 175 Q 34 180 39 175" fill="none" stroke="#1e293b" strokeWidth="1.4" />
+            <circle cx="202" cy="126" r="10" fill="none" stroke="#1e293b" strokeWidth="1.5" />
+            <circle cx="202" cy="176" r="10" fill="none" stroke="#1e293b" strokeWidth="1.5" />
+            {/* 하단 스누피 빨간 지붕 포인트 */}
+            <polygon points="84,258 152,258 144,244 92,244" fill="#ef4444" stroke="#1e293b" strokeWidth="1.5" />
+          </svg>
+        )}
+
+        {/* 기존 시크릿 스킨 4종 커스텀 아트 오버레이 */}
         {skinKey === 'SECRET_TOYSTORY' && (
           <svg width="236" height="284" viewBox="0 0 236 284" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 0 }}>
             <ellipse cx="42" cy="70" rx="22" ry="11" fill="#ffffff" opacity="0.9" />
@@ -375,7 +417,7 @@ export default function TamagotchiShell({
           </svg>
         )}
 
-        {/* 기존 커스텀 아트 오버레이 5종 */}
+        {/* 기존 일반 커스텀 아트 오버레이 5종 */}
         {skinKey === 'PINK_ICE' && (
           <svg width="236" height="284" viewBox="0 0 236 284" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 0 }}>
             <polygon points="34,42 74,26 84,56 42,74" fill="#fbcfe8" opacity="0.68" />
@@ -430,6 +472,25 @@ export default function TamagotchiShell({
           <div style={{ fontSize: '11px', fontWeight: '900', color: '#0369a1', textShadow: '0 1px 0 #ffffff', letterSpacing: '1.5px', marginBottom: '1px', position: 'relative', zIndex: 2 }}>
             1996
           </div>
+        ) : skinKey === 'SECRET_PEANUTS' ? (
+          <div
+            style={{
+              background: '#1e293b',
+              color: '#ffffff',
+              fontSize: '10px',
+              fontWeight: '900',
+              letterSpacing: '1.5px',
+              padding: '2px 10px',
+              borderRadius: '3px',
+              transform: 'rotate(-5deg)',
+              border: '1.5px dashed #facc15',
+              marginBottom: '3px',
+              position: 'relative',
+              zIndex: 2,
+            }}
+          >
+            PEANUTS
+          </div>
         ) : (
           <div
             style={{
@@ -452,10 +513,17 @@ export default function TamagotchiShell({
             fontSize: skinKey === 'CLEAR_90S' ? '14px' : '12px',
             fontWeight: '900',
             fontStyle: 'italic',
-            color: skinKey === 'CLEAR_90S' || skinKey === 'SECRET_KITTY' ? '#ec4899' : '#fff',
+            color:
+              skinKey === 'CLEAR_90S' || skinKey === 'SECRET_KITTY'
+                ? '#ec4899'
+                : skinKey === 'SECRET_PEANUTS'
+                ? '#1e293b'
+                : '#fff',
             textShadow:
               skinKey === 'SECRET_KITTY'
                 ? '0 1.5px 0 #ffffff, -1px -1px 0 #f43f5e, 1px -1px 0 #f43f5e'
+                : skinKey === 'SECRET_PEANUTS'
+                ? '0 1px 0 #ffffff, -1px -1px 0 #ffffff, 1px -1px 0 #ffffff'
                 : '0 1.5px 0 #1e3a8a, -1px -1px 0 #1e3a8a, 1px -1px 0 #1e3a8a, -1px 1px 0 #1e3a8a',
             letterSpacing: '0.3px',
             marginBottom: '6px',
@@ -473,9 +541,22 @@ export default function TamagotchiShell({
             ? 'HELLO KITTY'
             : skinKey === 'SECRET_R2D2'
             ? 'R2-D2'
+            : skinKey === 'SECRET_PEANUTS'
+            ? 'SNOOPY'
             : 'Tamagotchi'}
           {skinKey !== 'CLEAR_90S' && (
-            <div style={{ fontSize: '7.5px', letterSpacing: '1.2px', color: skinKey === 'SECRET_KITTY' ? '#ef4444' : '#fef08a' }}>
+            <div
+              style={{
+                fontSize: '7.5px',
+                letterSpacing: '1.2px',
+                color:
+                  skinKey === 'SECRET_KITTY'
+                    ? '#ef4444'
+                    : skinKey === 'SECRET_PEANUTS'
+                    ? '#dc2626'
+                    : '#fef08a',
+              }}
+            >
               {skin.isSecret ? 'SECRET EDITION' : 'CONNECTION'}
             </div>
           )}
@@ -499,7 +580,7 @@ export default function TamagotchiShell({
             zIndex: 2,
           }}
         >
-          {/* LCD 액정 화면 (야간 수면 모드 지원) */}
+          {/* LCD 액정 화면 */}
           <div
             style={{
               width: '100%',
@@ -635,7 +716,7 @@ function PhysicalButton({ label, title, color, border, onClick, offsetY = 0 }) {
         justifyContent: 'center',
         fontSize: '8px',
         fontWeight: '900',
-        color: 'rgba(0,0,0,0.55)',
+        color: color === '#1e293b' ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.55)',
         padding: 0,
       }}
     >
