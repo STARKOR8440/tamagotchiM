@@ -1,7 +1,6 @@
 import React from 'react';
 import { SPECIES } from './evolutionTree';
 
-// 색상 밝기 조절 유틸 (입체 음영/하이라이트 자동 생성)
 function shadeColor(hex, percent) {
   if (!hex || !hex.startsWith('#')) return hex;
   const num = parseInt(hex.slice(1), 16);
@@ -12,7 +11,6 @@ function shadeColor(hex, percent) {
   return `#${(0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1)}`;
 }
 
-// 32x32 고밀도 시크릿 픽셀 스프라이트 렌더러
 function SecretPixelSprite({ sprite, frame, size, transformStyle }) {
   const grid = frame === 1 ? sprite.frame1 : sprite.frame0;
   return (
@@ -29,27 +27,27 @@ function SecretPixelSprite({ sprite, frame, size, transformStyle }) {
 }
 
 const SECRET_SPRITES = {
-  // 1. 보안관 우디 (32x32 고해상도: 카우보이 모자·빨간 스카프·체크 셔츠·얼룩 조끼·보안관 배지·부츠)
+  // 1. 보안관 우디
   SECRET_WOODY: {
     palette: {
-      O: '#271207', // 짙은 아웃라인
-      H: '#92400e', // 모자 기본 브라운
-      h: '#b45309', // 모자 하이라이트
-      d: '#5c280b', // 모자 챙 그림자
-      S: '#fed7aa', // 얼굴/손 피부
-      s: '#fdba74', // 피부 음영
-      W: '#ffffff', // 눈 흰자
-      E: '#0f172a', // 눈동자/눈썹
-      R: '#dc2626', // 빨간 스카프
-      r: '#991b1b', // 스카프 음영
-      Y: '#facc15', // 노란 셔츠
-      c: '#ea580c', // 셔츠 체크 라인
-      V: '#ffffff', // 카우 조끼 바탕
-      v: '#1e293b', // 카우 조끼 얼룩
-      G: '#fde047', // 보안관 별 배지 / 벨트 버클
-      B: '#2563eb', // 청바지
-      b: '#1d4ed8', // 청바지 음영
-      T: '#78350f', // 카우보이 부츠
+      O: '#271207',
+      H: '#92400e',
+      h: '#b45309',
+      d: '#5c280b',
+      S: '#fed7aa',
+      s: '#fdba74',
+      W: '#ffffff',
+      E: '#0f172a',
+      R: '#dc2626',
+      r: '#991b1b',
+      Y: '#facc15',
+      c: '#ea580c',
+      V: '#ffffff',
+      v: '#1e293b',
+      G: '#fde047',
+      B: '#2563eb',
+      b: '#1d4ed8',
+      T: '#78350f',
     },
     frame0: [
       '..........OOOOOOOOOOOO..........',
@@ -121,21 +119,21 @@ const SECRET_SPRITES = {
     ],
   },
 
-  // 2. 베이비 그로구 (32x32 고해상도: 대형 뾰족 귀·핑크 귀안·주름진 이마·대형 눈망울·하이칼라 로브)
+  // 2. 베이비 그로구
   SECRET_GROGU: {
     palette: {
-      O: '#14381e', // 짙은 숲녹색 아웃라인
-      G: '#86efac', // 밝은 민트 그린 피부
-      g: '#4ade80', // 중간 그린 음영
-      d: '#22c55e', // 짙은 그린 주름/그림자
-      P: '#f9a8d4', // 귀 안쪽 핑크
-      p: '#f472b6', // 귀 안쪽 진핑크
-      E: '#090d16', // 대형 까만 눈동자
-      W: '#ffffff', // 눈 반짝임 하이라이트
-      C: '#e7e5e4', // 로브 칼라/소매 밝은 베이지
-      R: '#d6d3d1', // 로브 기본 베이지
-      r: '#a8a29e', // 로브 주름 음영
-      m: '#78716c', // 로브 깊은 그림자
+      O: '#14381e',
+      G: '#86efac',
+      g: '#4ade80',
+      d: '#22c55e',
+      P: '#f9a8d4',
+      p: '#f472b6',
+      E: '#090d16',
+      W: '#ffffff',
+      C: '#e7e5e4',
+      R: '#d6d3d1',
+      r: '#a8a29e',
+      m: '#78716c',
     },
     frame0: [
       '................................',
@@ -207,18 +205,18 @@ const SECRET_SPRITES = {
     ],
   },
 
-  // 3. 리본 헬로키티 (32x32 고해상도: 부드러운 윤곽·빨간 입체 리본·6가닥 수염·노란 코·파란 멜빵바지)
+  // 3. 리본 헬로키티
   SECRET_KITTY: {
     palette: {
-      O: '#1e293b', // 깔끔한 다크 아웃라인
-      W: '#ffffff', // 순백색 털
-      w: '#e2e8f0', // 부드러운 입체 음영
-      R: '#ef4444', // 선명한 레드 리본
-      r: '#b91c1c', // 리본 음영
-      p: '#fca5a5', // 리본 하이라이트
-      Y: '#facc15', // 노란 코 & 반팔 티셔츠
-      B: '#2563eb', // 파란 오버롤 멜빵
-      b: '#1d4ed8', // 오버롤 음영
+      O: '#1e293b',
+      W: '#ffffff',
+      w: '#e2e8f0',
+      R: '#ef4444',
+      r: '#b91c1c',
+      p: '#fca5a5',
+      Y: '#facc15',
+      B: '#2563eb',
+      b: '#1d4ed8',
     },
     frame0: [
       '................................',
@@ -290,19 +288,19 @@ const SECRET_SPRITES = {
     ],
   },
 
-  // 4. 드로이드 R2-D2 (32x32 고해상도: 실버 메탈 돔·광학 렌즈 센서·레드 LED·블루 패널·3족 드로이드 다리)
+  // 4. 드로이드 R2-D2
   SECRET_R2D2: {
     palette: {
-      O: '#334155', // 메탈 외곽선
-      S: '#e2e8f0', // 실버 돔 기본
-      s: '#94a3b8', // 실버 돔 음영
-      W: '#ffffff', // 순백 바디 & 반사광
-      w: '#cbd5e1', // 화이트 바디 음영
-      B: '#2563eb', // 로열 블루 장갑
-      b: '#1d4ed8', // 짙은 블루 음영
-      D: '#0f172a', // 광학 센서 블랙
-      C: '#38bdf8', // 센서 렌즈 빛
-      R: '#ef4444', // 붉은 상태 표시등
+      O: '#334155',
+      S: '#e2e8f0',
+      s: '#94a3b8',
+      W: '#ffffff',
+      w: '#cbd5e1',
+      B: '#2563eb',
+      b: '#1d4ed8',
+      D: '#0f172a',
+      C: '#38bdf8',
+      R: '#ef4444',
     },
     frame0: [
       '................................',
@@ -373,6 +371,85 @@ const SECRET_SPRITES = {
       '................................',
     ],
   },
+
+  // 5. 피너츠 스누피 (32x32 고해상도: 긴 주둥이·까만 코·처진 귀·빨간 목줄·흰 몸통·꼬리)
+  SECRET_SNOOPY: {
+    palette: {
+      O: '#0f172a', // 선명한 블랙 라인 & 귀/코/꼬리
+      W: '#ffffff', // 순백색 털
+      w: '#e2e8f0', // 입체 음영
+      R: '#ef4444', // 빨간 목줄
+      r: '#b91c1c', // 목줄 음영
+    },
+    frame0: [
+      '................................',
+      '..............OOOOOOO...........',
+      '............OOWWWWWWWOO.........',
+      '...........OWWWWWWWWWWWOO.......',
+      '......OOOOOOWWWWWOOOWWWWOO......',
+      '....OOWWWWWWWWWWWOOOWWWWWOO.....',
+      '...OOWWWWWWWWWWWWWWWWWOOOOWO....',
+      '..OOOWWWWWWWWWWWWWWWWWOOOOOWO...',
+      '..OOOOWWWWWWWWWWWWWWWWOOOOOWO...',
+      '..OOOOWWWWWWWWWWWWWWWWOOOOOWO...',
+      '...OOWWWWWWWWWWWWWWWWWOOOOOWO...',
+      '....OOWWWWWWWWWWWWWWWWOOOOOWO...',
+      '.....OOOWWWWWWWWWWWWWWOOOOOO....',
+      '.......OOOOOWWWWWWWWWWO.OOO.....',
+      '...........OOWWWWWWWWOO.........',
+      '............OORRRRRROO..........',
+      '............ORrRRRRrRO..........',
+      '...........OOWWWWWWWWOO.........',
+      '..........OOWWWWWWWWWWOO........',
+      '..........OWWWWWOOOWWWWO........',
+      '..........OWWWWWOWWWWWWO........',
+      '..........OWWWWWOWWWWWWO........',
+      '..........OWWWWWOWWWWWWOOO......',
+      '..........OOWWWWOOOWWWWOOOO.....',
+      '...........OOWWWWWWWWWOOOO......',
+      '............OOWWWWWWWOO.........',
+      '............OWWWOOOWWWO.........',
+      '...........OWWWWO.OWWWWO........',
+      '..........OWWWWWOOOOOWWWO.......',
+      '..........OOOOOOOOOOOOOOO.......',
+      '................................',
+      '................................',
+    ],
+    frame1: [
+      '................................',
+      '................................',
+      '..............OOOOOOO...........',
+      '............OOWWWWWWWOO.........',
+      '...........OWWWWWWWWWWWOO.......',
+      '......OOOOOOWWWWWOOOWWWWOO......',
+      '....OOWWWWWWWWWWWOOOWWWWWOO.....',
+      '...OOWWWWWWWWWWWWWWWWWOOOOWO....',
+      '..OOOWWWWWWWWWWWWWWWWWOOOOOWO...',
+      '..OOOOWWWWWWWWWWWWWWWWOOOOOWO...',
+      '..OOOOWWWWWWWWWWWWWWWWOOOOOWO...',
+      '...OOWWWWWWWWWWWWWWWWWOOOOOWO...',
+      '....OOWWWWWWWWWWWWWWWWOOOOOWO...',
+      '.....OOOWWWWWWWWWWWWWWOOOOOO....',
+      '.......OOOOOWWWWWWWWWWO.OOO.....',
+      '...........OOWWWWWWWWOO.........',
+      '............OORRRRRROO..........',
+      '............ORrRRRRrRO..........',
+      '...........OOWWWWWWWWOO.........',
+      '..........OOWWWWWWWWWWOO........',
+      '..........OWWWWWOOOWWWWO........',
+      '..........OWWWWWOWWWWWWO........',
+      '..........OWWWWWOWWWWWWO........',
+      '..........OWWWWWOWWWWWWOOOO.....',
+      '..........OOWWWWOOOWWWWOOO......',
+      '...........OOWWWWWWWWWOO........',
+      '...........OWWWWO..OWWWWO.......',
+      '..........OWWWWWO..OWWWWWO......',
+      '.........OWWWWWWOOOOOWWWWWO.....',
+      '.........OOOOOOOOOOOOOOOOOO.....',
+      '................................',
+      '................................',
+    ],
+  },
 };
 
 export default function PetSprite({
@@ -399,13 +476,15 @@ export default function PetSprite({
 
   const bounceY = isDragging ? 0 : actionState === 'HAPPY' ? (frame === 0 ? -5 : 0) : frame === 1 ? -2 : 0;
 
+  // 스누피 원본 도트는 기본 방향이 왼쪽을 향하므로 direction 부호를 반전시켜 이동 방향과 일치시킴
+  const effectiveDir = speciesId === 'SECRET_SNOOPY' ? -direction : direction;
+
   const transformStyle = {
-    transform: `scaleX(${direction}) translateY(${bounceY}px)`,
+    transform: `scaleX(${effectiveDir}) translateY(${bounceY}px)`,
     transition: 'transform 0.14s steps(2)',
     filter: lcdMode ? 'grayscale(100%) contrast(235%) brightness(84%)' : stickerOutline,
   };
 
-  // 시크릿 4종 전용 32x32 고밀도 픽셀 아트
   if (SECRET_SPRITES[speciesId]) {
     return (
       <SecretPixelSprite
@@ -417,7 +496,7 @@ export default function PetSprite({
     );
   }
 
-  // 0단계: 32x32 세련된 알 스프라이트
+  // 0단계: 알
   if (spec.stage === 'EGG') {
     const tilt = frame === 1 ? 'rotate(3deg)' : 'rotate(-3deg)';
     return (
@@ -437,7 +516,7 @@ export default function PetSprite({
     );
   }
 
-  // 1단계: 몽글 베이비 (통통한 1등신 32x32)
+  // 1단계: 몽글 베이비
   if (spec.stage === 'BABY') {
     return (
       <svg width={size} height={size} viewBox="0 0 32 32" shapeRendering="crispEdges" style={transformStyle}>
@@ -453,7 +532,7 @@ export default function PetSprite({
     );
   }
 
-  // 2~4단계: 키드 / 청소년 / 성체 (세련된 2등신 전신 도트 32x32)
+  // 2~4단계: 키드 / 청소년 / 성체
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" shapeRendering="crispEdges" style={transformStyle}>
       {spec.ear === 'cat' && (
@@ -466,7 +545,7 @@ export default function PetSprite({
         <path fill={spec.accent || '#cbd5e1'} d={frame === 0 ? 'M4 17h3v6H4v-6zm21 0h3v6h-3v-6z' : 'M3 15h4v5H3v-5zm22 0h4v5h-4v-5z'} />
       )}
       {spec.ear === 'dragon' && (
-        <path fill={spec.accent || '#38bdf8'} d={frame === 0 ? 'M2 14h5v6H2v-6zm23 0h5v6h-5v-6z' : 'M2 16h5v6H2v-6zm23 0h5v6h-5v-6z'} />
+        <path fill={spec.accent || '#38bdf8'} d={frame === 0 ? 'M2 14h5v6H2v-6zm23 0h5v6h-5v-6z' : 'M2 16h5v6h-5v-6zm23 0h5v6h-5v-6z'} />
       )}
       {spec.ear === 'mermaid' && (
         <path fill={spec.accent || '#fbcfe8'} d="M3 15h4v5H3v-5zm22 0h4v5h-4v-5zM11 26h10v2H11v-2zm-2 2h5v2H9v-2zm9 0h5v2h-5v-2z" />
