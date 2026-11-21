@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { SPECIES } from './evolutionTree';
+import { SPECIES, SECRET_VARIANTS} from './evolutionTree';
 import { SHELL_SKINS } from './TamagotchiShell';
 import { sfx } from './sound';
 
