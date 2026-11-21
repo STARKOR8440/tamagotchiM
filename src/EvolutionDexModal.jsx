@@ -70,7 +70,7 @@ export default function EvolutionDexModal({
 
   const getConditionText = (spec) => {
     if (spec.id === 'LEGEND_SECRET') {
-      return `★ 전설·히든 (올스탯 50↑ & 50승 · 시크릿 변신 ${secretHistory.length}/4종 수집)`;
+      return `★ 전설·히든 (올스탯 50↑ & 50승 · 시크릿 변신 ${secretHistory.length}/${SECRET_VARIANTS.length}종 수집)`;
     }
     if (spec.isLegend) {
       return '★ 전설·히든 (올스탯 50↑ & 50승)';
@@ -298,7 +298,7 @@ export default function EvolutionDexModal({
         </div>
       </div>
 
-      {/* 시크릿 스페이스 선택 시 발견한 시크릿 4종 컬렉션 바 표시 */}
+      {/* 시크릿 스페이스 선택 시 발견한 시크릿 5종 컬렉션 바 표시 */}
       {selectedId === 'LEGEND_SECRET' && (
         <div
           style={{
@@ -312,9 +312,9 @@ export default function EvolutionDexModal({
           }}
         >
           <span style={{ fontSize: '11px', fontWeight: '800', color: '#5b21b6' }}>
-            🎁 시크릿 컬렉션 ({secretHistory.length}/4)
+            🎁 시크릿 ({secretHistory.length}/{SECRET_VARIANTS.length})
           </span>
-          <div style={{ display: 'flex', gap: '6px' }}>
+          <div style={{ display: 'flex', gap: '4px' }}>
             {SECRET_VARIANTS.map((secId) => {
               const found = secretHistory.includes(secId);
               return (
@@ -322,8 +322,8 @@ export default function EvolutionDexModal({
                   key={secId}
                   title={found ? SPECIES[secId].name : '미발견 시크릿'}
                   style={{
-                    width: '28px',
-                    height: '28px',
+                    width: '26px',
+                    height: '26px',
                     borderRadius: '8px',
                     background: '#ffffff',
                     border: found ? '1.5px solid #8b5cf6' : '1px dashed #cbd5e1',
@@ -335,7 +335,7 @@ export default function EvolutionDexModal({
                 >
                   <div
                     style={{
-                      transform: 'scale(0.28)',
+                      transform: 'scale(0.26)',
                       filter: found ? 'none' : 'brightness(0) opacity(0.25)',
                     }}
                   >
