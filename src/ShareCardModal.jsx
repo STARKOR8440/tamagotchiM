@@ -107,8 +107,10 @@ export default function ShareCardModal({ pet, onClose }) {
       W / 2,
       588
     );
+
+// 캔버스 하단 스탯 출력 줄 수정 (약 114번째 줄)
     ctx.fillText(
-      `도감 달성: ${unlockedCount} / ${visibleTotal}종  |  시크릿: ${pet.secretHistory?.length || 0} / 4종`,
+      `도감 달성: ${unlockedCount} / ${visibleTotal}종  |  시크릿: ${pet.secretHistory?.length || 0} / ${SECRET_VARIANTS.length}종`,
       W / 2,
       618
     );
