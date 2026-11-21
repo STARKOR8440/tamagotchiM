@@ -48,14 +48,21 @@ export const SPECIES = {
   LEGEND_NARWHAL: { id: 'LEGEND_NARWHAL', stage: 'ADULT', isLegend: true, name: '오로라 일각고래', biome: 'LEGEND', color: '#a5b4fc', ear: 'narwhal', accent: '#38bdf8' },
   LEGEND_SECRET: { id: 'LEGEND_SECRET', stage: 'ADULT', isLegend: true, name: '시크릿 스페이스', biome: 'LEGEND', color: '#1e1b4b', ear: 'secret', accent: '#facc15' },
 
-  // 6단계(도감 미표시 시크릿 변신 4종): LEGEND_SECRET 당첨 시 랜덤 변신 & 전용 스킨 지급
+  // 6단계(도감 미표시 시크릿 변신 5종): LEGEND_SECRET 당첨 시 랜덤 변신 & 전용 스킨 지급
   SECRET_WOODY: { id: 'SECRET_WOODY', stage: 'ADULT', isLegend: true, isSecretVariant: true, bonusSkin: 'SECRET_TOYSTORY', name: '보안관 우디', biome: 'LEGEND', color: '#facc15', ear: 'woody', accent: '#ef4444' },
   SECRET_GROGU: { id: 'SECRET_GROGU', stage: 'ADULT', isLegend: true, isSecretVariant: true, bonusSkin: 'SECRET_GROGU', name: '베이비 그로구', biome: 'LEGEND', color: '#86efac', ear: 'grogu', accent: '#d6d3d1' },
   SECRET_KITTY: { id: 'SECRET_KITTY', stage: 'ADULT', isLegend: true, isSecretVariant: true, bonusSkin: 'SECRET_KITTY', name: '리본 헬로키티', biome: 'LEGEND', color: '#ffffff', ear: 'kitty', accent: '#ef4444' },
   SECRET_R2D2: { id: 'SECRET_R2D2', stage: 'ADULT', isLegend: true, isSecretVariant: true, bonusSkin: 'SECRET_R2D2', name: '드로이드 R2-D2', biome: 'LEGEND', color: '#f8fafc', ear: 'r2d2', accent: '#2563eb' },
+  SECRET_SNOOPY: { id: 'SECRET_SNOOPY', stage: 'ADULT', isLegend: true, isSecretVariant: true, bonusSkin: 'SECRET_PEANUTS', name: '피너츠 스누피', biome: 'LEGEND', color: '#ffffff', ear: 'snoopy', accent: '#ef4444' },
 };
 
-export const SECRET_VARIANTS = ['SECRET_WOODY', 'SECRET_GROGU', 'SECRET_KITTY', 'SECRET_R2D2'];
+export const SECRET_VARIANTS = [
+  'SECRET_WOODY',
+  'SECRET_GROGU',
+  'SECRET_KITTY',
+  'SECRET_R2D2',
+  'SECRET_SNOOPY',
+];
 
 export function resolveSecretVariant(currentSpeciesId = '') {
   const candidates = SECRET_VARIANTS.filter((id) => id !== currentSpeciesId);
