@@ -16,13 +16,11 @@ import {
 } from './evolutionTree';
 import { sfx } from './sound';
 
-// 테스터 데이터 초기화를 위해 스토리지 키를 v2로 업데이트 (구버전 v1 자동 삭제)
 const STORAGE_KEY = 'mobile_tamagotchi_pwa_v2';
 const LEGACY_STORAGE_KEYS = ['mobile_tamagotchi_pwa_v1'];
 
 const MENU_IDS = ['FEED', 'PLAY', 'CLEAN', 'SHOP', 'STATUS', 'DEX'];
-// 아래 비밀번호를 원하시는 새 코드로 변경하세요
-const DEV_PASSCODE = '1128';
+const DEV_PASSCODE = '8440';
 
 const FOOD_MENU = [
   // 1페이지: 식사류
@@ -137,7 +135,6 @@ const INITIAL_STATE = {
 
 export default function App() {
   const [pet, setPet] = useState(() => {
-    // 구버전 세이브 데이터 정리 (치트로 해금한 기존 테스터 데이터 초기화)
     LEGACY_STORAGE_KEYS.forEach((oldKey) => {
       if (localStorage.getItem(oldKey)) {
         localStorage.removeItem(oldKey);
@@ -190,6 +187,24 @@ export default function App() {
   const [actionState, setActionState] = useState('IDLE');
   const [isMuted, setIsMuted] = useState(false);
   const [nowTs, setNowTs] = useState(() => Date.now());
+
+  // 화면 크기에 맞춰 본체 확대 비율 자동 계산 (최대 1.44배까지 확대)
+  const [shellScale, setShellScale] = useState(() => {
+    if (typeof window === 'undefined') return 1.42;
+    const byWidth = (window.innerWidth - 20) / 260;
+    const byHeight = (window.innerHeight - 135) / 335;
+    return Math.max(1.25, Math.min(1.46, Number(Math.min(byWidth, byHeight).toFixed(2))));
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      const byWidth = (window.innerWidth - 20) / 260;
+      const byHeight = (window.innerHeight - 135) / 335;
+      setShellScale(Math.max(1.25, Math.min(1.46, Number(Math.min(byWidth, byHeight).toFixed(2)))));
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // 상단 네온 전광판 상태
   const [tickerText, setTickerText] = useState('');
@@ -785,13 +800,14 @@ export default function App() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '12px 12px',
+        padding: '10px 10px',
         boxSizing: 'border-box',
         position: 'relative',
         background: 'linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%)',
+        overflow: 'hidden',
       }}
     >
-      {/* 네온 LED 전광판 애니메이션: 왼쪽(-100%)에서 오른쪽(100%)으로 스크롤 */}
+      {/* 네온 LED 전광판 애니메이션 */}
       <style>{`
         @keyframes neonMarqueeLeftToRight {
           0% { transform: translateX(-100%); }
@@ -809,14 +825,14 @@ export default function App() {
         }
       `}</style>
 
-      {/* 상단 영역 (유틸리티 바 + 네온 채팅 전광판) */}
+      {/* 상단 영역 (폭과 높이 확대로 가독성·터치감 상향) */}
       <div
         style={{
           width: '100%',
-          maxWidth: '420px',
+          maxWidth: '460px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '7px',
+          gap: '8px',
           zIndex: 10,
         }}
       >
@@ -827,7 +843,7 @@ export default function App() {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            gap: '4px',
+            gap: '5px',
           }}
         >
           <div
@@ -835,15 +851,15 @@ export default function App() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '4px',
+              gap: '5px',
               background: '#ffffff',
-              border: '1.5px solid #bae6fd',
-              borderRadius: '20px',
-              padding: '5px 9px',
+              border: '2px solid #bae6fd',
+              borderRadius: '22px',
+              padding: '6px 12px',
               color: '#0f172a',
-              fontSize: '11.5px',
-              fontWeight: '800',
-              boxShadow: '0 2px 6px rgba(15, 23, 42, 0.06)',
+              fontSize: '13px',
+              fontWeight: '900',
+              boxShadow: '0 2px 6px rgba(15, 23, 42, 0.08)',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -854,7 +870,7 @@ export default function App() {
             <span>{currentSpec.name}</span>
           </div>
 
-          <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: '5px', flexShrink: 0 }}>
             <button
               onClick={() => {
                 sfx.confirm();
@@ -902,7 +918,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* 2행: 실시간 광장 네온 LED 전광판 */}
+        {/* 2행: 실시간 광장 네온 LED 전광판 (높이 32px, 글씨 13px로 확대) */}
         <div
           onClick={() => {
             sfx.beep();
@@ -912,10 +928,10 @@ export default function App() {
           title="터치하여 광장 채팅 열기"
           style={{
             width: '100%',
-            height: '26px',
+            height: '32px',
             background: 'linear-gradient(90deg, #090d16 0%, #111827 50%, #090d16 100%)',
-            border: tickerHighlight ? '1.5px solid #facc15' : '1.5px solid #38bdf8',
-            borderRadius: '12px',
+            border: tickerHighlight ? '2px solid #facc15' : '2px solid #38bdf8',
+            borderRadius: '14px',
             boxShadow: tickerHighlight
               ? '0 0 14px rgba(250, 204, 21, 0.9)'
               : '0 0 10px rgba(56, 189, 248, 0.3), inset 0 0 8px rgba(14, 165, 233, 0.22)',
@@ -932,10 +948,10 @@ export default function App() {
             style={{
               background: tickerHighlight ? '#f59e0b' : '#0284c7',
               color: tickerHighlight ? '#0f172a' : '#ffffff',
-              fontSize: '9px',
+              fontSize: '10.5px',
               fontWeight: '900',
               letterSpacing: '0.5px',
-              padding: '0 7px',
+              padding: '0 9px',
               height: '100%',
               display: 'flex',
               alignItems: 'center',
@@ -965,7 +981,7 @@ export default function App() {
               >
                 <span
                   style={{
-                    fontSize: '11.5px',
+                    fontSize: '13px',
                     fontWeight: '800',
                     color: tickerHighlight ? '#fef08a' : '#7dd3fc',
                     textShadow: tickerHighlight
@@ -981,9 +997,9 @@ export default function App() {
                 style={{
                   width: '100%',
                   textAlign: 'center',
-                  fontSize: '10.5px',
+                  fontSize: '11.5px',
                   fontWeight: '700',
-                  color: '#64748b',
+                  color: '#94a3b8',
                   letterSpacing: '0.3px',
                 }}
               >
@@ -994,7 +1010,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* 중앙 다마고치 본체 */}
+      {/* 중앙 다마고치 본체 (화면 크기에 맞춰 최대 1.46배로 확대) */}
       <div
         style={{
           flex: 1,
@@ -1005,11 +1021,12 @@ export default function App() {
       >
         <div
           style={{
-            transform: 'scale(1.28)',
+            transform: `scale(${shellScale})`,
             transformOrigin: 'center center',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            transition: 'transform 0.2s ease',
           }}
         >
           <TamagotchiShell
@@ -1049,9 +1066,9 @@ export default function App() {
                       color: foodPage === 0 ? '#f8fafc' : '#0f172a',
                       border: '1px solid #1e293b',
                       borderRadius: '2px',
-                      fontSize: '6.8px',
+                      fontSize: '7.2px',
                       fontWeight: '800',
-                      padding: '1px 0',
+                      padding: '1.5px 0',
                       lineHeight: 1.1,
                       cursor: 'pointer',
                     }}
@@ -1066,9 +1083,9 @@ export default function App() {
                       color: foodPage === 1 ? '#f8fafc' : '#0f172a',
                       border: '1px solid #1e293b',
                       borderRadius: '2px',
-                      fontSize: '6.8px',
+                      fontSize: '7.2px',
                       fontWeight: '800',
-                      padding: '1px 0',
+                      padding: '1.5px 0',
                       lineHeight: 1.1,
                       cursor: 'pointer',
                     }}
@@ -1095,16 +1112,16 @@ export default function App() {
                           flexDirection: 'column',
                           justifyContent: 'center',
                           alignItems: 'stretch',
-                          gap: '0px',
+                          gap: '0.5px',
                           textAlign: 'left',
                           lineHeight: 1.05,
                           overflow: 'hidden',
-                          background: isReady ? 'rgba(255, 255, 255, 0.52)' : 'rgba(100, 116, 139, 0.22)',
+                          background: isReady ? 'rgba(255, 255, 255, 0.55)' : 'rgba(100, 116, 139, 0.22)',
                           border: isReady ? '1px solid #334155' : '1px dashed #64748b',
                           opacity: isReady ? 1 : 0.48,
                         }}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '7.4px', fontWeight: '900' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '7.8px', fontWeight: '900' }}>
                           <span style={{ color: isReady ? '#0f172a' : '#475569' }}>{item.name}</span>
                           <span
                             style={{
@@ -1115,9 +1132,9 @@ export default function App() {
                                   ? 'rgba(15, 23, 42, 0.12)'
                                   : 'rgba(239, 68, 68, 0.22)',
                               color: !canAfford ? '#991b1b' : '#0f172a',
-                              padding: '0 2.5px',
+                              padding: '0 3px',
                               borderRadius: '2px',
-                              fontSize: '6.8px',
+                              fontSize: '7.2px',
                             }}
                           >
                             {item.price === 0 ? '무료' : `${item.price}🪙`}
@@ -1125,10 +1142,10 @@ export default function App() {
                         </div>
                         <div
                           style={{
-                            fontSize: '6.1px',
+                            fontSize: '6.5px',
                             fontWeight: '700',
                             color: isReady ? '#1e293b' : '#475569',
-                            letterSpacing: '-0.35px',
+                            letterSpacing: '-0.3px',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
@@ -1187,9 +1204,9 @@ export default function App() {
                       color: shopTab === 'SKIN' ? '#f8fafc' : '#0f172a',
                       border: '1px solid #1e293b',
                       borderRadius: '3px',
-                      fontSize: '8px',
+                      fontSize: '8.2px',
                       fontWeight: '800',
-                      padding: '1px 0',
+                      padding: '1.5px 0',
                       cursor: 'pointer',
                     }}
                   >
@@ -1203,9 +1220,9 @@ export default function App() {
                       color: shopTab === 'ITEM' ? '#f8fafc' : '#0f172a',
                       border: '1px solid #1e293b',
                       borderRadius: '3px',
-                      fontSize: '8px',
+                      fontSize: '8.2px',
                       fontWeight: '800',
-                      padding: '1px 0',
+                      padding: '1.5px 0',
                       cursor: 'pointer',
                     }}
                   >
@@ -1230,12 +1247,12 @@ export default function App() {
                               background: equipped
                                 ? '#1e293b'
                                 : canAfford
-                                ? 'rgba(255,255,255,0.52)'
+                                ? 'rgba(255,255,255,0.55)'
                                 : 'rgba(100, 116, 139, 0.22)',
                               color: equipped ? '#f8fafc' : canAfford ? '#0f172a' : '#475569',
                               border: canAfford ? '1px solid #334155' : '1px dashed #64748b',
                               borderRadius: '3px',
-                              fontSize: '7.4px',
+                              fontSize: '7.8px',
                               fontWeight: '800',
                               padding: '2px 2px',
                               cursor: 'pointer',
@@ -1244,11 +1261,11 @@ export default function App() {
                               flexDirection: 'column',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              lineHeight: 1.1,
+                              lineHeight: 1.12,
                             }}
                           >
                             <span>{info.name.slice(0, 5)}</span>
-                            <span style={{ fontSize: '6.8px', color: equipped ? '#bae6fd' : !canAfford ? '#991b1b' : '#334155' }}>
+                            <span style={{ fontSize: '7px', color: equipped ? '#bae6fd' : !canAfford ? '#991b1b' : '#334155' }}>
                               {unlocked ? (equipped ? '✓ 장착중' : '착용하기') : `${info.price}🪙`}
                             </span>
                           </button>
@@ -1262,7 +1279,7 @@ export default function App() {
                         background: 'rgba(15,23,42,0.14)',
                         border: '1px solid #334155',
                         borderRadius: '3px',
-                        fontSize: '7.5px',
+                        fontSize: '7.8px',
                         fontWeight: '800',
                         padding: '1.5px',
                         cursor: 'pointer',
@@ -1293,16 +1310,16 @@ export default function App() {
                             flexDirection: 'column',
                             justifyContent: 'center',
                             alignItems: 'center',
-                            lineHeight: 1.08,
-                            background: canAfford ? 'rgba(255,255,255,0.52)' : 'rgba(100, 116, 139, 0.22)',
+                            lineHeight: 1.1,
+                            background: canAfford ? 'rgba(255,255,255,0.55)' : 'rgba(100, 116, 139, 0.22)',
                             border: canAfford ? '1px solid #334155' : '1px dashed #64748b',
                             opacity: canAfford ? 1 : 0.48,
                           }}
                         >
-                          <div style={{ fontSize: '7.2px', fontWeight: '900', color: canAfford ? '#0f172a' : '#475569' }}>
+                          <div style={{ fontSize: '7.5px', fontWeight: '900', color: canAfford ? '#0f172a' : '#475569' }}>
                             {it.label} <span style={{ color: !canAfford ? '#991b1b' : '#0369a1' }}>{it.price}🪙</span>
                           </div>
-                          <div style={{ fontSize: '6.4px', fontWeight: '700', color: canAfford ? '#1e293b' : '#475569' }}>
+                          <div style={{ fontSize: '6.7px', fontWeight: '700', color: canAfford ? '#1e293b' : '#475569' }}>
                             {it.desc}
                           </div>
                         </button>
@@ -1327,10 +1344,10 @@ export default function App() {
                             lineHeight: 1.1,
                           }}
                         >
-                          <span style={{ fontSize: '7.3px', fontWeight: '900', color: canUseOrb ? '#0f172a' : '#475569' }}>
-                            🔮 환생구슬 <span style={{ fontSize: '6.3px', fontWeight: '700' }}>(다른 성체 변신)</span>
+                          <span style={{ fontSize: '7.6px', fontWeight: '900', color: canUseOrb ? '#0f172a' : '#475569' }}>
+                            🔮 환생구슬 <span style={{ fontSize: '6.5px', fontWeight: '700' }}>(다른 성체 변신)</span>
                           </span>
-                          <span style={{ fontSize: '7px', fontWeight: '900', color: !canUseOrb ? '#991b1b' : '#854d0e' }}>
+                          <span style={{ fontSize: '7.3px', fontWeight: '900', color: !canUseOrb ? '#991b1b' : '#854d0e' }}>
                             1000🪙
                           </span>
                         </button>
@@ -1347,7 +1364,7 @@ export default function App() {
                 style={{
                   width: '100%',
                   height: '100%',
-                  fontSize: '8px',
+                  fontSize: '8.2px',
                   color: '#0f172a',
                   display: 'flex',
                   flexDirection: 'column',
@@ -1363,7 +1380,7 @@ export default function App() {
                     borderBottom: '1px solid #334155',
                     paddingBottom: '1px',
                     fontWeight: '900',
-                    fontSize: '7.8px',
+                    fontSize: '8.2px',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -1407,16 +1424,16 @@ export default function App() {
                       color: '#f8fafc',
                       border: 'none',
                       borderRadius: '3px',
-                      fontSize: '7.5px',
+                      fontSize: '7.8px',
                       fontWeight: '800',
-                      padding: '1.5px',
+                      padding: '2px',
                       cursor: 'pointer',
                     }}
                   >
                     🥚 2세대 알 물려받기
                   </button>
                 ) : (
-                  <div style={{ fontSize: '7.2px', fontWeight: '800', textAlign: 'center', opacity: 0.85 }}>
+                  <div style={{ fontSize: '7.5px', fontWeight: '800', textAlign: 'center', opacity: 0.88 }}>
                     승리 {pet.gameWins || 0}회 · 도감 {pet.unlockedSpecies?.length || 1}/35
                   </div>
                 )}
@@ -1428,11 +1445,12 @@ export default function App() {
                 {reaction && (
                   <div
                     style={{
-                      fontSize: '8.5px',
+                      fontSize: '8.8px',
+                      fontWeight: '800',
                       color: '#0f172a',
-                      background: 'rgba(255,255,255,0.82)',
-                      border: '1px solid rgba(15,23,42,0.2)',
-                      padding: '1px 5px',
+                      background: 'rgba(255,255,255,0.88)',
+                      border: '1px solid rgba(15,23,42,0.22)',
+                      padding: '1.5px 6px',
                       borderRadius: '4px',
                       marginBottom: '1px',
                       textAlign: 'center',
@@ -1456,7 +1474,7 @@ export default function App() {
                       position: 'absolute',
                       bottom: 0,
                       right: -12,
-                      fontSize: '12px',
+                      fontSize: '13px',
                     }}
                   >
                     {'💩'.repeat(pet.poopCount)}
@@ -1473,11 +1491,11 @@ export default function App() {
         <div
           style={{
             display: 'flex',
-            gap: '5px',
+            gap: '6px',
             flexWrap: 'wrap',
             justifyContent: 'center',
             background: 'rgba(15, 23, 42, 0.92)',
-            padding: '6px 10px',
+            padding: '7px 12px',
             borderRadius: '14px',
             zIndex: 20,
           }}
@@ -1640,14 +1658,14 @@ function StatGauge({ label, value }) {
   const safeVal = Math.max(0, Math.min(100, value));
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', width: '100%' }}>
-      <span style={{ width: '24px', fontSize: '8px' }}>{label}</span>
+      <span style={{ width: '25px', fontSize: '8.2px', fontWeight: '800' }}>{label}</span>
       <div
         style={{
           flex: 1,
-          height: '6px',
+          height: '6.5px',
           border: '1px solid #1e293b',
           borderRadius: '2px',
-          background: 'rgba(255,255,255,0.35)',
+          background: 'rgba(255,255,255,0.38)',
           padding: '0.5px',
         }}
       >
@@ -1660,7 +1678,7 @@ function StatGauge({ label, value }) {
           }}
         />
       </div>
-      <span style={{ width: '20px', textAlign: 'right', fontSize: '7.5px' }}>{safeVal}</span>
+      <span style={{ width: '21px', textAlign: 'right', fontSize: '7.8px', fontWeight: '800' }}>{safeVal}</span>
     </div>
   );
 }
@@ -1668,13 +1686,13 @@ function StatGauge({ label, value }) {
 const topBtnStyle = {
   background: '#ffffff',
   border: '1.5px solid #cbd5e1',
-  borderRadius: '10px',
+  borderRadius: '11px',
   color: '#0f172a',
-  fontSize: '11px',
+  fontSize: '12.5px',
   fontWeight: '800',
-  padding: '5px 7px',
+  padding: '6px 9px',
   cursor: 'pointer',
-  boxShadow: '0 2px 5px rgba(15, 23, 42, 0.06)',
+  boxShadow: '0 2px 5px rgba(15, 23, 42, 0.08)',
 };
 
 const devBtnStyle = {
@@ -1682,9 +1700,9 @@ const devBtnStyle = {
   color: '#ffffff',
   border: 'none',
   borderRadius: '8px',
-  fontSize: '10.5px',
+  fontSize: '11px',
   fontWeight: '800',
-  padding: '5px 8px',
+  padding: '6px 9px',
   cursor: 'pointer',
 };
 
@@ -1712,11 +1730,11 @@ const shopGridItemStyle = {
 };
 
 const biomeBadgeStyle = {
-  background: 'rgba(255, 255, 255, 0.45)',
+  background: 'rgba(255, 255, 255, 0.5)',
   border: '1px solid #475569',
   borderRadius: '3px',
-  padding: '1px 2px',
-  fontSize: '6.8px',
+  padding: '1.5px 2.5px',
+  fontSize: '7.1px',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',

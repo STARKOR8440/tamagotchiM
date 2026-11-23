@@ -17,8 +17,8 @@ export default function GuideModal({ onClose }) {
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(15, 23, 42, 0.76)',
-        backdropFilter: 'blur(4px)',
+        background: 'rgba(15, 23, 42, 0.78)',
+        backdropFilter: 'blur(5px)',
         zIndex: 9999,
         display: 'flex',
         alignItems: 'center',
@@ -31,35 +31,35 @@ export default function GuideModal({ onClose }) {
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%',
-          maxWidth: '420px',
-          maxHeight: '86dvh',
+          maxWidth: '560px',
+          maxHeight: '92dvh',
           background: '#ffffff',
-          borderRadius: '24px',
+          borderRadius: '26px',
           border: '3.5px solid #38bdf8',
-          boxShadow: '0 20px 45px rgba(0, 0, 0, 0.45)',
-          padding: '14px',
+          boxShadow: '0 24px 50px rgba(0, 0, 0, 0.45)',
+          padding: '18px',
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
-          gap: '10px',
+          gap: '12px',
           color: '#0f172a',
           userSelect: 'none',
         }}
       >
         {/* 상단 헤더 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '15px', fontWeight: '900', color: '#0369a1' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '18px', fontWeight: '900', color: '#0369a1' }}>
               📘 다마고치 육성 가이드
             </span>
             <span
               style={{
                 background: '#e0f2fe',
                 color: '#0284c7',
-                fontSize: '10.5px',
+                fontSize: '12px',
                 fontWeight: '800',
-                padding: '2px 7px',
-                borderRadius: '10px',
+                padding: '3px 9px',
+                borderRadius: '12px',
               }}
             >
               최신 통합판
@@ -71,9 +71,9 @@ export default function GuideModal({ onClose }) {
               background: '#ef4444',
               color: '#ffffff',
               border: 'none',
-              borderRadius: '10px',
-              padding: '5px 10px',
-              fontSize: '11.5px',
+              borderRadius: '12px',
+              padding: '7px 13px',
+              fontSize: '13px',
               fontWeight: '800',
               cursor: 'pointer',
             }}
@@ -83,7 +83,7 @@ export default function GuideModal({ onClose }) {
         </div>
 
         {/* 카테고리 탭 바 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
           {GUIDE_TABS.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
@@ -94,12 +94,12 @@ export default function GuideModal({ onClose }) {
                   setActiveTab(tab.id);
                 }}
                 style={{
-                  padding: '6px 2px',
-                  borderRadius: '10px',
-                  border: isActive ? '1.5px solid #0284c7' : '1px solid #cbd5e1',
+                  padding: '8px 4px',
+                  borderRadius: '12px',
+                  border: isActive ? '2px solid #0284c7' : '1.5px solid #cbd5e1',
                   background: isActive ? '#0284c7' : '#f8fafc',
                   color: isActive ? '#ffffff' : '#334155',
-                  fontSize: '10.5px',
+                  fontSize: '12.5px',
                   fontWeight: '800',
                   cursor: 'pointer',
                 }}
@@ -117,13 +117,13 @@ export default function GuideModal({ onClose }) {
             overflowY: 'auto',
             background: '#f8fafc',
             border: '1.5px solid #e2e8f0',
-            borderRadius: '16px',
-            padding: '12px',
+            borderRadius: '18px',
+            padding: '14px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '10px',
-            fontSize: '11.5px',
-            lineHeight: 1.48,
+            gap: '12px',
+            fontSize: '13.5px',
+            lineHeight: 1.55,
           }}
         >
           {activeTab === 'BASIC' && (
@@ -140,23 +140,24 @@ export default function GuideModal({ onClose }) {
               <SectionCard title="🍙 식사(3종) & 🍰 간식(3종) 메뉴·가격표">
                 <ul style={listStyle}>
                   <li>
-                    <strong>식사류 (소화 쿨타임 3분 / 포만 95 미만 섭취):</strong>
+                    <strong>식사류 (소화 쿨타임 3분 실시간 표시 / 포만 95 미만 섭취):</strong>
                     <br />• <strong>🍙 주먹밥 (무료):</strong> 포만+20, 체력+15, 대지+1
                     <br />• <strong>🍣 초밥 (7🪙):</strong> 포만+25, 행복+10, 체력+20, 바다+2
                     <br />• <strong>🍜 라멘 (9🪙):</strong> 포만+35, 행복+5, 체력+25, 대지+2
                   </li>
                   <li>
                     <strong>간식류 (하루 최대 6회 / 쿨타임 없음):</strong>
-                    <br />• <strong>🍰 케이크 (3🪙):</strong> 포만+10, 행복+20, 체력+5, 하늘+1
+                    <br />• <strong>🍰 케이크 (3🪙):</strong> 행복+20, 포만+10, 체력+5, 하늘+1
                     <br />• <strong>🥛 우유 (5🪙):</strong> 포만+15, 행복+8, 체력+15, 청결+10, 바다+1
-                    <br />• <strong>🍨 파르페 (7🪙):</strong> 포만+12, 행복+25, 체력+10, 하늘+2
+                    <br />• <strong>🍨 파르페 (7🪙):</strong> 행복+25, 포만+12, 체력+10, 하늘+2
                   </li>
+                  <li>보유 코인이 부족하거나 소화 대기 중인 메뉴는 흐리게 표시됩니다.</li>
                 </ul>
               </SectionCard>
 
-              <SectionCard title="🧹 청소 · 체력 · 야간 수면 모드">
+              <SectionCard title="📊 상태 확인 · 청소 · 야간 수면 모드">
                 <ul style={listStyle}>
-                  <li><strong>체력 관리:</strong> 15초마다 +1 자동 회복되며 식사·간식·드링크로 즉시 충전됩니다.</li>
+                  <li><strong>상태창(📊):</strong> 포만·행복·체력 게이지와 함께 현재 <strong>☁️하늘 · 🌱대지 · 💧바다</strong> 속성 스탯을 확인할 수 있습니다.</li>
                   <li><strong>청소 보너스:</strong> 배변(💩)을 치우면 <strong>1개당 +10🪙</strong>와 <strong>바다(+1)</strong> 스탯을 얻습니다.</li>
                   <li><strong>야간 수면(🌙):</strong> 밤 11시~오전 6시 사이에는 액정이 어두워지며 캐릭터가 잠듭니다.</li>
                 </ul>
@@ -220,12 +221,12 @@ export default function GuideModal({ onClose }) {
 
           {activeTab === 'PLAZA' && (
             <>
-              <SectionCard title="📡 다마고치 커넥션 광장">
+              <SectionCard title="📡 다마고치 커넥션 광장 & 네온 전광판">
                 <ul style={listStyle}>
-                  <li>상단 <strong>[📡 광장]</strong> 버튼을 누르면 현재 접속 중인 친구들과 만날 수 있습니다.</li>
+                  <li>상단 <strong>[📡 광장]</strong> 버튼 또는 네온 전광판을 터치하면 접속 중인 친구들과 만날 수 있습니다.</li>
                   <li><strong>✏️ 프로필 변경:</strong> 내 닉네임(최대 8자)과 광장에 표시될 대표 캐릭터 아바타를 자유롭게 변경할 수 있습니다.</li>
                   <li><strong>🎁 선물 주고받기:</strong> 친구 캐릭터를 눌러 <strong>❤️ 하트(행복+15)</strong>, <strong>🍰 케이크(포만+15)</strong>, <strong>🪙 20코인</strong>을 실시간으로 보낼 수 있습니다.</li>
-                  <li><strong>💬 실시간 한줄 채팅:</strong> 접속 중인 유저들과 인사를 나누고 전설·선물 알림을 실시간으로 공유합니다.</li>
+                  <li><strong>📺 실시간 전광판:</strong> 새 채팅이나 선물 알림이 올라오면 메인 화면 상단 네온 간판에 강조 표시됩니다.</li>
                 </ul>
               </SectionCard>
 
@@ -256,14 +257,14 @@ function SectionCard({ title, children }) {
       style={{
         background: '#ffffff',
         border: '1px solid #cbd5e1',
-        borderRadius: '12px',
-        padding: '9px 11px',
+        borderRadius: '14px',
+        padding: '11px 13px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '5px',
+        gap: '6px',
       }}
     >
-      <div style={{ fontSize: '12px', fontWeight: '900', color: '#0369a1' }}>{title}</div>
+      <div style={{ fontSize: '14px', fontWeight: '900', color: '#0369a1' }}>{title}</div>
       {children}
     </div>
   );
@@ -271,9 +272,9 @@ function SectionCard({ title, children }) {
 
 const listStyle = {
   margin: 0,
-  paddingLeft: '16px',
+  paddingLeft: '18px',
   display: 'flex',
   flexDirection: 'column',
-  gap: '4px',
+  gap: '5px',
   color: '#334155',
 };

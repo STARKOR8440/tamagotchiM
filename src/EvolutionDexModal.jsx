@@ -1,48 +1,7 @@
 import React, { useState } from 'react';
 import PetSprite from './PetSprite';
-import { SPECIES, SECRET_VARIANTS } from './evolutionTree';
-
-const OUTER_RING_IDS = [
-  'ADULT_PINK_CAT',
-  'ADULT_STAR_BUNNY',
-  'ADULT_OWL',
-  'ADULT_SATURN',
-  'ADULT_PARROT',
-  'ADULT_ASTRONAUT',
-  'ADULT_DOLPHIN',
-  'ADULT_RED_PANDA',
-  'ADULT_RIBBON_DOG',
-  'ADULT_HEART_BUNNY',
-  'ADULT_AXOLOTL',
-  'ADULT_PENGUIN',
-  'ADULT_GREEN_DOG',
-  'ADULT_ROBO',
-  'ADULT_MAMETCHI',
-  'ADULT_CURLY',
-  'ADULT_CACTUS',
-  'ADULT_NINJA',
-];
-
-const INNER_RING_IDS = [
-  'KID_SKY',
-  'TEEN_STAR',
-  'TEEN_CLOUD',
-  'KID_WATER',
-  'TEEN_FIN',
-  'TEEN_JELLY',
-  'KID_LAND',
-  'TEEN_SPROUT',
-  'TEEN_CUBE',
-];
-
-const LEGEND_IDS = [
-  'LEGEND_DRAGON',
-  'LEGEND_MERMAID',
-  'LEGEND_UNICORN',
-  'LEGEND_EAST_DRAGON',
-  'LEGEND_NARWHAL',
-  'LEGEND_SECRET',
-];
+import { SPECIES, STAGE_ORDER, BIOME_META, SECRET_SPACE_VARIANTS } from './evolutionTree';
+import { sfx } from './sound';
 
 export default function EvolutionDexModal({
   unlockedSpecies = ['EGG'],
@@ -51,96 +10,78 @@ export default function EvolutionDexModal({
   careStats = { sky: 1, land: 1, water: 1 },
   onClose,
 }) {
-  const activeDexId = SPECIES[currentSpeciesId]?.isSecretVariant
-    ? 'LEGEND_SECRET'
-    : currentSpeciesId;
+  const allList = Object.values(SPECIES).filter((sp) => !sp.isSecretVariant);
+  const totalCount = allList.length;
+  const unlockedCount = unlockedSpecies.length;
 
   const [selectedId, setSelectedId] = useState(
-    activeDexId === 'EGG' ? 'BABY_MARU' : activeDexId
+    SPECIES[currentSpeciesId]?.isSecretVariant ? 'LEGEND_SECRET' : currentSpeciesId
   );
 
-  const visibleSpeciesList = Object.values(SPECIES).filter((s) => !s.isSecretVariant);
-  const totalCount = visibleSpeciesList.length;
-  const unlockedCount = visibleSpeciesList.filter((s) =>
-    unlockedSpecies.includes(s.id)
-  ).length;
-
-  const selectedSpec = SPECIES[selectedId] || SPECIES.BABY_MARU;
+  const selectedSpec = SPECIES[selectedId] || SPECIES.EGG;
   const isSelectedUnlocked = unlockedSpecies.includes(selectedId);
+  const isSecretSpaceSlot = selectedId === 'LEGEND_SECRET';
 
-  const getConditionText = (spec) => {
-    if (spec.id === 'LEGEND_SECRET') {
-      return `★ 전설·히든 (올스탯 50↑ & 50승 · 시크릿 변신 ${secretHistory.length}/${SECRET_VARIANTS.length}종 수집)`;
-    }
-    if (spec.isLegend) {
-      return '★ 전설·히든 (올스탯 50↑ & 50승)';
-    }
-    if (spec.stage === 'BABY') return '기본 부화 단계 (5분 경과)';
-    if (spec.stage === 'KID') {
-      return spec.biome === 'SKY'
-        ? '하늘(케이크·놀이) 중심 육성 (1시간)'
-        : spec.biome === 'WATER'
-        ? '바다(청소·청결) 중심 육성 (1시간)'
-        : '대지(주먹밥·식사) 중심 육성 (1시간)';
-    }
-    if (spec.stage === 'TEEN') {
-      return `${
-        spec.biome === 'SKY' ? '하늘' : spec.biome === 'WATER' ? '바다' : '대지'
-      } 계열 성장기 (6시간 & 미니게임 2승)`;
-    }
-    return `${
-      spec.biome === 'SKY' ? '하늘' : spec.biome === 'WATER' ? '바다' : '대지'
-    } 계열 최종 성체 (24시간 & 청결 유지)`;
-  };
+  const latestSecretId =
+    SPECIES[currentSpeciesId]?.isSecretVariant
+      ? currentSpeciesId
+      : secretHistory[secretHistory.length - 1] || 'SECRET_WOODY';
+
+  const displaySpec =
+    isSecretSpaceSlot && isSelectedUnlocked
+      ? SPECIES[latestSecretId] || selectedSpec
+      : selectedSpec;
+
+  const maxCare = Math.max(10, careStats.sky, careStats.land, careStats.water);
 
   return (
     <div
       onClick={(e) => e.stopPropagation()}
       style={{
-        width: '94vw',
-        maxWidth: '420px',
+        width: '100%',
+        maxWidth: '560px',
+        maxHeight: '92dvh',
         background: '#ffffff',
-        borderRadius: '24px',
+        borderRadius: '26px',
         border: '3.5px solid #38bdf8',
-        boxShadow: '0 20px 45px rgba(15, 23, 42, 0.45)',
-        padding: '14px',
+        boxShadow: '0 24px 50px rgba(0, 0, 0, 0.45)',
+        padding: '18px',
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
-        gap: '9px',
+        gap: '12px',
         color: '#0f172a',
         userSelect: 'none',
       }}
     >
-      {/* 상단 헤더 */}
+      {/* 상단 타이틀 바 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '15px', fontWeight: '900', color: '#0f172a' }}>
-            📖 방사형 진화 도감
+          <span style={{ fontSize: '18px', fontWeight: '900', color: '#0369a1' }}>
+            📖 다마고치 진화도감
           </span>
           <span
             style={{
               background: '#e0f2fe',
               color: '#0284c7',
-              fontSize: '11.5px',
+              fontSize: '12.5px',
               fontWeight: '800',
-              padding: '2px 9px',
+              padding: '3px 10px',
               borderRadius: '12px',
             }}
           >
-            {unlockedCount} / {totalCount}종
+            {unlockedCount} / {totalCount}
           </span>
         </div>
-
         <button
           onClick={onClose}
           style={{
             background: '#ef4444',
             color: '#ffffff',
             border: 'none',
-            borderRadius: '10px',
-            padding: '5px 11px',
-            fontSize: '11.5px',
+            borderRadius: '12px',
+            padding: '7px 13px',
+            fontSize: '13px',
             fontWeight: '800',
             cursor: 'pointer',
           }}
@@ -149,281 +90,235 @@ export default function EvolutionDexModal({
         </button>
       </div>
 
-      {/* 중앙 방사형 진화 트리 맵 */}
-      <div
-        style={{
-          position: 'relative',
-          width: '100%',
-          aspectRatio: '1 / 1',
-          maxHeight: '305px',
-          margin: '0 auto',
-          borderRadius: '20px',
-          background: 'radial-gradient(circle, #ffffff 18%, #e0f2fe 72%, #bae6fd 100%)',
-          border: '2px solid #bae6fd',
-          overflow: 'hidden',
-        }}
-      >
-        <svg
-          width="100%"
-          height="100%"
-          viewBox="0 0 300 300"
-          style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
-        >
-          {OUTER_RING_IDS.map((id, idx) => {
-            const angle = ((idx * 360) / OUTER_RING_IDS.length - 90) * (Math.PI / 180);
-            const x2 = 150 + Math.cos(angle) * 124;
-            const y2 = 150 + Math.sin(angle) * 124;
-            const spec = SPECIES[id];
-            const strokeColor =
-              spec.biome === 'SKY'
-                ? '#f472b6'
-                : spec.biome === 'WATER'
-                ? '#38bdf8'
-                : '#4ade80';
-            return (
-              <line
-                key={id}
-                x1="150"
-                y1="150"
-                x2={x2}
-                y2={y2}
-                stroke={strokeColor}
-                strokeWidth="2"
-                opacity="0.65"
-              />
-            );
-          })}
-          <circle cx="150" cy="150" r="68" fill="none" stroke="#93c5fd" strokeWidth="1.5" strokeDasharray="3 3" />
-          <circle cx="150" cy="150" r="124" fill="none" stroke="#7dd3fc" strokeWidth="1.5" strokeDasharray="3 3" />
-        </svg>
-
-        <NodeSlot
-          id="BABY_MARU"
-          xPct={50}
-          yPct={50}
-          size={36}
-          unlocked={unlockedSpecies.includes('BABY_MARU')}
-          selected={selectedId === 'BABY_MARU'}
-          isCurrent={activeDexId === 'BABY_MARU'}
-          onSelect={() => setSelectedId('BABY_MARU')}
-        />
-
-        {INNER_RING_IDS.map((id, idx) => {
-          const angle = ((idx * 360) / INNER_RING_IDS.length - 90) * (Math.PI / 180);
-          const xPct = 50 + Math.cos(angle) * 22.5;
-          const yPct = 50 + Math.sin(angle) * 22.5;
-          return (
-            <NodeSlot
-              key={id}
-              id={id}
-              xPct={xPct}
-              yPct={yPct}
-              size={28}
-              unlocked={unlockedSpecies.includes(id)}
-              selected={selectedId === id}
-              isCurrent={activeDexId === id}
-              onSelect={() => setSelectedId(id)}
-            />
-          );
-        })}
-
-        {OUTER_RING_IDS.map((id, idx) => {
-          const angle = ((idx * 360) / OUTER_RING_IDS.length - 90) * (Math.PI / 180);
-          const xPct = 50 + Math.cos(angle) * 41.2;
-          const yPct = 50 + Math.sin(angle) * 41.2;
-          return (
-            <NodeSlot
-              key={id}
-              id={id}
-              xPct={xPct}
-              yPct={yPct}
-              size={30}
-              unlocked={unlockedSpecies.includes(id)}
-              selected={selectedId === id}
-              isCurrent={activeDexId === id}
-              onSelect={() => setSelectedId(id)}
-            />
-          );
-        })}
-      </div>
-
-      {/* 전설 · 히든 6종 전용 바 */}
-      <div
-        style={{
-          background: 'linear-gradient(90deg, #fef9c3 0%, #fef08a 100%)',
-          border: '1.5px solid #facc15',
-          borderRadius: '14px',
-          padding: '6px 10px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <span style={{ fontSize: '11.5px', fontWeight: '900', color: '#854d0e' }}>
-          ★ 전설·히든
-        </span>
-        <div style={{ display: 'flex', gap: '4px' }}>
-          {LEGEND_IDS.map((id) => {
-            const unlocked = unlockedSpecies.includes(id);
-            const selected = selectedId === id;
-            return (
-              <button
-                key={id}
-                onClick={() => setSelectedId(id)}
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  padding: 0,
-                  borderRadius: '10px',
-                  border: selected ? '2px solid #0284c7' : '1.5px solid #eab308',
-                  background: selected ? '#e0f2fe' : '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  overflow: 'hidden',
-                }}
-              >
-                <div
-                  style={{
-                    transform: 'scale(0.32)',
-                    filter: unlocked ? 'none' : 'brightness(0) opacity(0.45)',
-                  }}
-                >
-                  <PetSprite speciesId={id} lcdMode={false} />
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 시크릿 스페이스 선택 시 발견한 시크릿 5종 컬렉션 바 표시 */}
-      {selectedId === 'LEGEND_SECRET' && (
-        <div
-          style={{
-            background: '#f5f3ff',
-            border: '1.5px solid #c4b5fd',
-            borderRadius: '12px',
-            padding: '6px 10px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <span style={{ fontSize: '11px', fontWeight: '800', color: '#5b21b6' }}>
-            🎁 시크릿 ({secretHistory.length}/{SECRET_VARIANTS.length})
-          </span>
-          <div style={{ display: 'flex', gap: '4px' }}>
-            {SECRET_VARIANTS.map((secId) => {
-              const found = secretHistory.includes(secId);
-              return (
-                <div
-                  key={secId}
-                  title={found ? SPECIES[secId].name : '미발견 시크릿'}
-                  style={{
-                    width: '26px',
-                    height: '26px',
-                    borderRadius: '8px',
-                    background: '#ffffff',
-                    border: found ? '1.5px solid #8b5cf6' : '1px dashed #cbd5e1',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <div
-                    style={{
-                      transform: 'scale(0.26)',
-                      filter: found ? 'none' : 'brightness(0) opacity(0.25)',
-                    }}
-                  >
-                    <PetSprite speciesId={secId} lcdMode={false} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* 하단 선택 캐릭터 정보 & 출현 조건 카드 */}
+      {/* 현재 육성 속성 게이지 바 */}
       <div
         style={{
           background: '#f8fafc',
           border: '1.5px solid #e2e8f0',
-          borderRadius: '14px',
-          padding: '10px 12px',
+          borderRadius: '16px',
+          padding: '10px 14px',
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '8px',
+          flexDirection: 'column',
+          gap: '6px',
         }}
       >
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '13.5px', fontWeight: '900', color: '#0f172a' }}>
-            {isSelectedUnlocked || selectedSpec.isLegend ? selectedSpec.name : '??? (미발견)'}
-          </div>
-          <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px', lineHeight: 1.35 }}>
-            {getConditionText(selectedSpec)}
-          </div>
+        <div style={{ fontSize: '12px', fontWeight: '800', color: '#475569' }}>
+          현재 육성 속성 (전설·시크릿 해금: 올스탯 50↑ & 50승↑)
+        </div>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          {(['sky', 'land', 'water']).map((key) => {
+            const meta = BIOME_META[key];
+            const val = careStats[key] || 0;
+            const pct = Math.min(100, Math.round((val / maxCare) * 100));
+            return (
+              <div key={key} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '800' }}>
+                  <span>{meta.icon} {meta.label}</span>
+                  <span style={{ color: meta.color }}>{val}</span>
+                </div>
+                <div style={{ height: '7px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      width: `${pct}%`,
+                      height: '100%',
+                      background: meta.color,
+                      transition: 'width 0.3s ease',
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 선택된 캐릭터 상세 카드 */}
+      <div
+        style={{
+          background: isSelectedUnlocked ? 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)' : '#f1f5f9',
+          border: isSelectedUnlocked ? '2px solid #7dd3fc' : '2px dashed #cbd5e1',
+          borderRadius: '18px',
+          padding: '12px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '14px',
+          minHeight: '86px',
+        }}
+      >
+        <div
+          style={{
+            width: '68px',
+            height: '68px',
+            borderRadius: '16px',
+            background: '#ffffff',
+            border: '1.5px solid #bae6fd',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          {isSelectedUnlocked ? (
+            <div style={{ transform: 'scale(0.68)' }}>
+              <PetSprite speciesId={displaySpec.id} frame={0} lcdMode={false} />
+            </div>
+          ) : (
+            <span style={{ fontSize: '26px', color: '#94a3b8', fontWeight: '900' }}>?</span>
+          )}
         </div>
 
-        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-          <span style={statBadgeStyle('#fce7f3', '#db2777')}>하늘:{careStats.sky || 1}</span>
-          <span style={statBadgeStyle('#dcfce7', '#16a34a')}>대지:{careStats.land || 1}</span>
-          <span style={statBadgeStyle('#e0f2fe', '#0284c7')}>바다:{careStats.water || 1}</span>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '16px', fontWeight: '900', color: '#0f172a' }}>
+              {isSelectedUnlocked ? displaySpec.name : '미발견 캐릭터'}
+            </span>
+            <span
+              style={{
+                fontSize: '11.5px',
+                fontWeight: '800',
+                padding: '2px 8px',
+                borderRadius: '8px',
+                background: '#ffffff',
+                color: '#0369a1',
+                border: '1px solid #bae6fd',
+              }}
+            >
+              {selectedSpec.stageLabel} · {BIOME_META[selectedSpec.biome]?.label}
+            </span>
+          </div>
+          <div style={{ fontSize: '12.5px', color: '#334155', lineHeight: 1.4 }}>
+            {isSelectedUnlocked ? displaySpec.desc : `힌트: ${selectedSpec.hint}`}
+          </div>
+
+          {isSecretSpaceSlot && (
+            <div style={{ fontSize: '11.5px', fontWeight: '800', color: '#7e22ce', marginTop: '2px' }}>
+              🎁 시크릿 에디션 수집 ({secretHistory.length}/{SECRET_SPACE_VARIANTS.length}):{' '}
+              {SECRET_SPACE_VARIANTS.map((sid) =>
+                secretHistory.includes(sid) ? SPECIES[sid].name.split(' ')[1] : '???'
+              ).join(' · ')}
+            </div>
+          )}
         </div>
+      </div>
+
+      {/* 단계별 전체 캐릭터 도감 스크롤 리스트 */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          paddingRight: '2px',
+        }}
+      >
+        {STAGE_ORDER.map((st) => {
+          const group = allList.filter((sp) => sp.stage === st.key);
+          return (
+            <div key={st.key} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: '#475569' }}>
+                {st.label} ({group.filter((g) => unlockedSpecies.includes(g.id)).length}/{group.length})
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(5, 1fr)',
+                  gap: '7px',
+                }}
+              >
+                {group.map((sp) => {
+                  const unlocked = unlockedSpecies.includes(sp.id);
+                  const isCurrent =
+                    sp.id === currentSpeciesId ||
+                    (sp.id === 'LEGEND_SECRET' && SPECIES[currentSpeciesId]?.isSecretVariant);
+                  const isSelected = sp.id === selectedId;
+                  const spriteToShow =
+                    sp.id === 'LEGEND_SECRET' && unlocked ? latestSecretId : sp.id;
+
+                  return (
+                    <button
+                      key={sp.id}
+                      onClick={() => {
+                        sfx.beep();
+                        setSelectedId(sp.id);
+                      }}
+                      style={{
+                        background: isSelected ? '#e0f2fe' : unlocked ? '#ffffff' : '#f1f5f9',
+                        border: isSelected
+                          ? '2px solid #0284c7'
+                          : isCurrent
+                          ? '2px solid #22c55e'
+                          : '1.5px solid #e2e8f0',
+                        borderRadius: '14px',
+                        padding: '6px 3px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '2px',
+                        cursor: 'pointer',
+                        position: 'relative',
+                        minHeight: '68px',
+                      }}
+                    >
+                      {isCurrent && (
+                        <span
+                          style={{
+                            position: 'absolute',
+                            top: '3px',
+                            right: '4px',
+                            fontSize: '9px',
+                            fontWeight: '900',
+                            color: '#16a34a',
+                          }}
+                        >
+                          NOW
+                        </span>
+                      )}
+                      {unlocked ? (
+                        <div style={{ transform: 'scale(0.45)', height: '34px', display: 'flex', alignItems: 'center' }}>
+                          <PetSprite speciesId={spriteToShow} frame={0} lcdMode={false} />
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            height: '34px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '18px',
+                            fontWeight: '900',
+                            color: '#cbd5e1',
+                          }}
+                        >
+                          ?
+                        </div>
+                      )}
+                      <span
+                        style={{
+                          fontSize: '10.5px',
+                          fontWeight: '800',
+                          color: unlocked ? '#0f172a' : '#94a3b8',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          maxWidth: '100%',
+                        }}
+                      >
+                        {unlocked
+                          ? sp.id === 'LEGEND_SECRET'
+                            ? SPECIES[spriteToShow]?.name.split(' ')[1] || '시크릿'
+                            : sp.name
+                          : '???'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
-
-function NodeSlot({ id, xPct, yPct, size, unlocked, selected, isCurrent, onSelect }) {
-  return (
-    <button
-      onClick={onSelect}
-      style={{
-        position: 'absolute',
-        left: `${xPct}%`,
-        top: `${yPct}%`,
-        transform: 'translate(-50%, -50%)',
-        width: `${size}px`,
-        height: `${size}px`,
-        padding: 0,
-        borderRadius: '50%',
-        border: isCurrent
-          ? '2.5px solid #f59e0b'
-          : selected
-          ? '2px solid #0284c7'
-          : '1px solid rgba(148,163,184,0.45)',
-        background: selected ? '#ffffff' : 'rgba(255,255,255,0.75)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        boxShadow: selected ? '0 2px 6px rgba(2,132,199,0.35)' : 'none',
-      }}
-    >
-      <div
-        style={{
-          transform: `scale(${size / 95})`,
-          filter: unlocked ? 'none' : 'brightness(0) opacity(0.35)',
-          pointerEvents: 'none',
-        }}
-      >
-        <PetSprite speciesId={id} lcdMode={false} />
-      </div>
-    </button>
-  );
-}
-
-const statBadgeStyle = (bg, color) => ({
-  background: bg,
-  color,
-  fontSize: '10px',
-  fontWeight: '800',
-  padding: '3px 6px',
-  borderRadius: '8px',
-});

@@ -93,7 +93,7 @@ export default function PlazaModal({
       try {
         const [uRes, mRes] = await Promise.all([
           fetch(`${FIREBASE_DB_URL}/plaza/users.json`),
-          fetch(`${FIREBASE_DB_URL}/plaza/messages.json?orderBy="$key"&limitToLast=25`),
+          fetch(`${FIREBASE_DB_URL}/plaza/messages.json?orderBy="$key"&limitToLast=30`),
         ]);
         const uData = (await uRes.json()) || {};
         const mData = (await mRes.json()) || {};
@@ -224,7 +224,6 @@ export default function PlazaModal({
     setSelectedTarget(null);
   };
 
-  // 1:1 통신방 입장 (만료된 방 자동 초기화 및 내 선택값 리셋)
   const handleJoinRoom = async () => {
     const cleanCode = roomCode.trim();
     if (cleanCode.length !== 4) {
@@ -249,7 +248,6 @@ export default function PlazaModal({
       const existing = await res.json();
       const now = Date.now();
 
-      // 기존 방이 없거나 마지막 활동 후 2분(120초)이 지났으면 빈 방으로 새로 시작
       const isExpired = !existing || now - (existing.updatedAt || 0) > 120000;
       const players = isExpired ? {} : existing.players || {};
 
@@ -260,7 +258,6 @@ export default function PlazaModal({
         return;
       }
 
-      // 재입장 시에도 이전 선택 기록(choice)을 깨끗이 비워서 새 대결이 가능하도록 초기화
       players[userId] = { userId, nickname, avatarId, choice: '' };
       const nextRoomState = { players, updatedAt: now };
 
@@ -274,7 +271,6 @@ export default function PlazaModal({
     }
   };
 
-  // 방 나가기 시 서버 DB에서 내 플레이어 정보 제거 (빈 방이면 방 전체 삭제)
   const handleLeaveRoom = async () => {
     sfx.beep();
     const targetRoom = joinedRoom;
@@ -307,7 +303,6 @@ export default function PlazaModal({
     }
   };
 
-  // 모달 전체를 닫을 때도 방에 들어가 있었다면 자동으로 방 정리
   const handleCloseModal = () => {
     if (joinedRoom) {
       handleLeaveRoom();
@@ -399,13 +394,13 @@ export default function PlazaModal({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(15, 23, 42, 0.76)',
-        backdropFilter: 'blur(4px)',
+        background: 'rgba(15, 23, 42, 0.78)',
+        backdropFilter: 'blur(5px)',
         zIndex: 9999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '12px',
+        padding: '14px',
         boxSizing: 'border-box',
       }}
     >
@@ -413,35 +408,35 @@ export default function PlazaModal({
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%',
-          maxWidth: '420px',
-          maxHeight: '88dvh',
+          maxWidth: '560px',
+          maxHeight: '92dvh',
           background: '#ffffff',
-          borderRadius: '24px',
+          borderRadius: '26px',
           border: '3.5px solid #0284c7',
-          boxShadow: '0 20px 45px rgba(0, 0, 0, 0.45)',
-          padding: '14px',
+          boxShadow: '0 24px 50px rgba(0, 0, 0, 0.45)',
+          padding: '18px',
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
-          gap: '10px',
+          gap: '12px',
           color: '#0f172a',
           overflow: 'hidden',
         }}
       >
         {/* 상단 헤더 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '14.5px', fontWeight: '900', color: '#0369a1' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '18px', fontWeight: '900', color: '#0369a1' }}>
               📡 다마고치 커넥션 광장
             </span>
             <span
               style={{
                 background: isFirebaseConfigured() ? '#dcfce7' : '#fef3c7',
                 color: isFirebaseConfigured() ? '#15803d' : '#b45309',
-                fontSize: '10.5px',
+                fontSize: '12px',
                 fontWeight: '800',
-                padding: '2px 7px',
-                borderRadius: '10px',
+                padding: '3px 9px',
+                borderRadius: '12px',
               }}
             >
               {isFirebaseConfigured() ? `접속 ${onlineList.length}명` : '로컬모드'}
@@ -453,9 +448,9 @@ export default function PlazaModal({
               background: '#ef4444',
               color: '#fff',
               border: 'none',
-              borderRadius: '10px',
-              padding: '5px 10px',
-              fontSize: '11.5px',
+              borderRadius: '12px',
+              padding: '7px 13px',
+              fontSize: '13px',
               fontWeight: '800',
               cursor: 'pointer',
               flexShrink: 0,
@@ -470,25 +465,25 @@ export default function PlazaModal({
           style={{
             background: '#f0f9ff',
             border: '1.5px solid #bae6fd',
-            borderRadius: '14px',
-            padding: '8px 10px',
+            borderRadius: '16px',
+            padding: '10px 14px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '8px',
+            gap: '10px',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-              <div style={{ width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <div style={{ transform: 'scale(0.36)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+              <div style={{ width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ transform: 'scale(0.45)' }}>
                   <PetSprite speciesId={avatarId} lcdMode={false} />
                 </div>
               </div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: '12.5px', fontWeight: '900', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontSize: '15px', fontWeight: '900', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {nickname}
                 </div>
-                <div style={{ fontSize: '10.5px', color: '#0284c7', fontWeight: '700' }}>
+                <div style={{ fontSize: '12px', color: '#0284c7', fontWeight: '700' }}>
                   {SPECIES[avatarId]?.name || '몽글 베이비'}
                 </div>
               </div>
@@ -505,9 +500,9 @@ export default function PlazaModal({
                 background: '#0284c7',
                 color: '#fff',
                 border: 'none',
-                borderRadius: '10px',
-                padding: '5px 9px',
-                fontSize: '11px',
+                borderRadius: '11px',
+                padding: '7px 12px',
+                fontSize: '12.5px',
                 fontWeight: '800',
                 cursor: 'pointer',
                 flexShrink: 0,
@@ -521,13 +516,13 @@ export default function PlazaModal({
             <div
               style={{
                 borderTop: '1px dashed #7dd3fc',
-                paddingTop: '8px',
+                paddingTop: '10px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '6px',
+                gap: '8px',
               }}
             >
-              <div style={{ display: 'flex', gap: '6px', width: '100%' }}>
+              <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
                 <input
                   type="text"
                   maxLength={8}
@@ -537,8 +532,8 @@ export default function PlazaModal({
                   style={{
                     flex: 1,
                     minWidth: 0,
-                    padding: '6px 8px',
-                    borderRadius: '8px',
+                    padding: '8px 10px',
+                    borderRadius: '10px',
                     border: '1.5px solid #38bdf8',
                     fontSize: '16px',
                     fontWeight: '700',
@@ -551,9 +546,9 @@ export default function PlazaModal({
                     background: '#16a34a',
                     color: '#fff',
                     border: 'none',
-                    borderRadius: '8px',
-                    padding: '6px 12px',
-                    fontSize: '12px',
+                    borderRadius: '10px',
+                    padding: '8px 16px',
+                    fontSize: '13.5px',
                     fontWeight: '800',
                     cursor: 'pointer',
                     flexShrink: 0,
@@ -563,19 +558,19 @@ export default function PlazaModal({
                 </button>
               </div>
 
-              <div style={{ fontSize: '10.5px', fontWeight: '800', color: '#475569' }}>
+              <div style={{ fontSize: '12px', fontWeight: '800', color: '#475569' }}>
                 광장 캐릭터 선택 ({AVATAR_CANDIDATES.length}종):
               </div>
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(6, 1fr)',
-                  gap: '4px',
-                  maxHeight: '105px',
+                  gridTemplateColumns: 'repeat(7, 1fr)',
+                  gap: '6px',
+                  maxHeight: '130px',
                   overflowY: 'auto',
                   background: '#ffffff',
-                  padding: '6px',
-                  borderRadius: '10px',
+                  padding: '8px',
+                  borderRadius: '12px',
                   border: '1px solid #cbd5e1',
                 }}
               >
@@ -588,10 +583,10 @@ export default function PlazaModal({
                     }}
                     title={sp.name}
                     style={{
-                      height: '36px',
+                      height: '44px',
                       padding: 0,
-                      borderRadius: '8px',
-                      border: tempAvatar === sp.id ? '2px solid #0284c7' : '1px solid #e2e8f0',
+                      borderRadius: '10px',
+                      border: tempAvatar === sp.id ? '2.5px solid #0284c7' : '1px solid #e2e8f0',
                       background: tempAvatar === sp.id ? '#e0f2fe' : '#f8fafc',
                       display: 'flex',
                       alignItems: 'center',
@@ -600,7 +595,7 @@ export default function PlazaModal({
                       overflow: 'hidden',
                     }}
                   >
-                    <div style={{ transform: 'scale(0.32)' }}>
+                    <div style={{ transform: 'scale(0.38)' }}>
                       <PetSprite speciesId={sp.id} lcdMode={false} />
                     </div>
                   </button>
@@ -611,7 +606,7 @@ export default function PlazaModal({
         </div>
 
         {/* 탭 전환 */}
-        <div style={{ display: 'flex', gap: '6px' }}>
+        <div style={{ display: 'flex', gap: '8px' }}>
           <button
             onClick={() => {
               sfx.beep();
@@ -619,12 +614,12 @@ export default function PlazaModal({
             }}
             style={{
               flex: 1,
-              padding: '7px',
-              borderRadius: '10px',
+              padding: '9px',
+              borderRadius: '12px',
               border: 'none',
               background: tab === 'PLAZA' ? '#0f172a' : '#e2e8f0',
               color: tab === 'PLAZA' ? '#ffffff' : '#334155',
-              fontSize: '11.5px',
+              fontSize: '13.5px',
               fontWeight: '800',
               cursor: 'pointer',
             }}
@@ -638,12 +633,12 @@ export default function PlazaModal({
             }}
             style={{
               flex: 1,
-              padding: '7px',
-              borderRadius: '10px',
+              padding: '9px',
+              borderRadius: '12px',
               border: 'none',
               background: tab === 'BATTLE' ? '#0f172a' : '#e2e8f0',
               color: tab === 'BATTLE' ? '#ffffff' : '#334155',
-              fontSize: '11.5px',
+              fontSize: '13.5px',
               fontWeight: '800',
               cursor: 'pointer',
             }}
@@ -658,12 +653,12 @@ export default function PlazaModal({
               style={{
                 background: 'linear-gradient(180deg, #dcfce7 0%, #bbf7d0 100%)',
                 border: '2px solid #4ade80',
-                borderRadius: '16px',
-                padding: '8px',
+                borderRadius: '18px',
+                padding: '10px',
                 display: 'flex',
-                gap: '8px',
+                gap: '10px',
                 overflowX: 'auto',
-                minHeight: '76px',
+                minHeight: '90px',
                 alignItems: 'center',
               }}
             >
@@ -679,15 +674,15 @@ export default function PlazaModal({
                       setSelectedTarget(isSelected ? null : u);
                     }}
                     style={{
-                      minWidth: '64px',
-                      background: isSelected ? '#fef08a' : 'rgba(255,255,255,0.85)',
+                      minWidth: '78px',
+                      background: isSelected ? '#fef08a' : 'rgba(255,255,255,0.88)',
                       border: isMe
                         ? '2px solid #0284c7'
                         : isSelected
                         ? '2px solid #eab308'
                         : '1.5px solid #86efac',
-                      borderRadius: '12px',
-                      padding: '4px',
+                      borderRadius: '14px',
+                      padding: '6px',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
@@ -695,15 +690,15 @@ export default function PlazaModal({
                       flexShrink: 0,
                     }}
                   >
-                    <div style={{ height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ transform: 'scale(0.34)' }}>
+                    <div style={{ height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ transform: 'scale(0.4)' }}>
                         <PetSprite speciesId={u.avatarId} lcdMode={false} />
                       </div>
                     </div>
-                    <span style={{ fontSize: '10px', fontWeight: '800', color: '#0f172a' }}>
+                    <span style={{ fontSize: '11.5px', fontWeight: '800', color: '#0f172a' }}>
                       {u.nickname}
                     </span>
-                    <span style={{ fontSize: '8.5px', color: isMe ? '#0284c7' : '#16a34a', fontWeight: '700' }}>
+                    <span style={{ fontSize: '10px', color: isMe ? '#0284c7' : '#16a34a', fontWeight: '700' }}>
                       {isMe ? '나' : '선물하기'}
                     </span>
                   </button>
@@ -716,22 +711,22 @@ export default function PlazaModal({
                 style={{
                   background: '#fef9c3',
                   border: '1.5px solid #facc15',
-                  borderRadius: '12px',
-                  padding: '8px 10px',
+                  borderRadius: '14px',
+                  padding: '10px 12px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '6px',
+                  gap: '8px',
                 }}
               >
-                <div style={{ fontSize: '11.5px', fontWeight: '900', color: '#854d0e' }}>
+                <div style={{ fontSize: '13px', fontWeight: '900', color: '#854d0e' }}>
                   🎁 [{selectedTarget.nickname}]님에게 선물 보내기
                 </div>
-                <div style={{ display: 'flex', gap: '5px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   <button onClick={() => handleSendGift(selectedTarget, 'HEART')} style={giftBtnStyle}>
-                    ❤️ 하트
+                    ❤️ 하트(행복+15)
                   </button>
                   <button onClick={() => handleSendGift(selectedTarget, 'CAKE')} style={giftBtnStyle}>
-                    🍰 케이크
+                    🍰 케이크(포만+15)
                   </button>
                   <button onClick={() => handleSendGift(selectedTarget, 'COIN')} style={giftBtnStyle}>
                     🪙 20코인
@@ -743,28 +738,28 @@ export default function PlazaModal({
             <div
               style={{
                 flex: 1,
-                minHeight: '125px',
-                maxHeight: '175px',
+                minHeight: '150px',
+                maxHeight: '220px',
                 overflowY: 'auto',
                 background: '#f8fafc',
                 border: '1.5px solid #e2e8f0',
-                borderRadius: '14px',
-                padding: '8px',
+                borderRadius: '16px',
+                padding: '10px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '5px',
+                gap: '6px',
               }}
             >
               {messages.map((m) => (
                 <div
                   key={m.id}
                   style={{
-                    fontSize: '11.5px',
+                    fontSize: '13px',
                     background: m.isSystem ? '#fef08a' : '#ffffff',
                     border: m.isSystem ? '1px solid #facc15' : '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    padding: '4px 8px',
-                    lineHeight: 1.35,
+                    borderRadius: '10px',
+                    padding: '6px 10px',
+                    lineHeight: 1.4,
                   }}
                 >
                   {m.isSystem ? (
@@ -780,7 +775,7 @@ export default function PlazaModal({
               <div ref={chatEndRef} />
             </div>
 
-            <form onSubmit={handleChatSubmit} style={{ display: 'flex', gap: '6px', width: '100%' }}>
+            <form onSubmit={handleChatSubmit} style={{ display: 'flex', gap: '8px', width: '100%' }}>
               <input
                 type="text"
                 maxLength={50}
@@ -790,8 +785,8 @@ export default function PlazaModal({
                 style={{
                   flex: 1,
                   minWidth: 0,
-                  padding: '8px 10px',
-                  borderRadius: '10px',
+                  padding: '10px 12px',
+                  borderRadius: '12px',
                   border: '1.5px solid #cbd5e1',
                   fontSize: '16px',
                   boxSizing: 'border-box',
@@ -803,9 +798,9 @@ export default function PlazaModal({
                   background: '#0284c7',
                   color: '#fff',
                   border: 'none',
-                  borderRadius: '10px',
-                  padding: '0 14px',
-                  fontSize: '12.5px',
+                  borderRadius: '12px',
+                  padding: '0 18px',
+                  fontSize: '14px',
                   fontWeight: '800',
                   cursor: 'pointer',
                   flexShrink: 0,
@@ -821,31 +816,31 @@ export default function PlazaModal({
             style={{
               background: '#f8fafc',
               border: '1.5px solid #cbd5e1',
-              borderRadius: '16px',
-              padding: '14px 12px',
+              borderRadius: '18px',
+              padding: '18px 16px',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: '10px',
+              gap: '14px',
               width: '100%',
               boxSizing: 'border-box',
             }}
           >
             {!joinedRoom ? (
               <>
-                <div style={{ fontSize: '13px', fontWeight: '900', color: '#0f172a', textAlign: 'center' }}>
+                <div style={{ fontSize: '15px', fontWeight: '900', color: '#0f172a', textAlign: 'center' }}>
                   📡 4자리 초대코드로 친구와 연결!
                 </div>
-                <div style={{ fontSize: '11px', color: '#475569', textAlign: 'center', lineHeight: 1.4 }}>
+                <div style={{ fontSize: '13px', color: '#475569', textAlign: 'center', lineHeight: 1.45 }}>
                   같은 4자리 숫자를 입력하면 두 캐릭터가 만나 실시간 가위바위보 대결을 펼칩니다.
                 </div>
                 <div
                   style={{
                     display: 'flex',
                     alignItems: 'stretch',
-                    gap: '8px',
+                    gap: '10px',
                     width: '100%',
-                    maxWidth: '280px',
+                    maxWidth: '320px',
                     boxSizing: 'border-box',
                   }}
                 >
@@ -856,17 +851,17 @@ export default function PlazaModal({
                     maxLength={4}
                     value={roomCode}
                     onChange={(e) => setRoomCode(e.target.value.replace(/\D/g, ''))}
-                    placeholder="0000"
+                    placeholder="8440"
                     style={{
                       flex: 1,
                       minWidth: 0,
                       width: '100%',
                       textAlign: 'center',
-                      fontSize: '16px',
+                      fontSize: '18px',
                       fontWeight: '900',
-                      letterSpacing: '2px',
-                      padding: '9px 6px',
-                      borderRadius: '10px',
+                      letterSpacing: '3px',
+                      padding: '10px 8px',
+                      borderRadius: '12px',
                       border: '2px solid #0284c7',
                       background: '#ffffff',
                       color: '#0f172a',
@@ -881,9 +876,9 @@ export default function PlazaModal({
                       background: '#0284c7',
                       color: '#ffffff',
                       border: 'none',
-                      borderRadius: '10px',
-                      padding: '0 16px',
-                      fontSize: '13px',
+                      borderRadius: '12px',
+                      padding: '0 20px',
+                      fontSize: '14.5px',
                       fontWeight: '800',
                       cursor: 'pointer',
                       flexShrink: 0,
@@ -897,7 +892,7 @@ export default function PlazaModal({
             ) : (
               <>
                 <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '11.5px', fontWeight: '900', color: '#0284c7' }}>
+                  <span style={{ fontSize: '13.5px', fontWeight: '900', color: '#0284c7' }}>
                     방 코드: [{joinedRoom}]
                   </span>
                   <button
@@ -905,9 +900,9 @@ export default function PlazaModal({
                     style={{
                       background: '#e2e8f0',
                       border: 'none',
-                      borderRadius: '8px',
-                      padding: '4px 9px',
-                      fontSize: '10.5px',
+                      borderRadius: '10px',
+                      padding: '6px 12px',
+                      fontSize: '12px',
                       fontWeight: '800',
                       cursor: 'pointer',
                     }}
@@ -919,9 +914,9 @@ export default function PlazaModal({
                 <div
                   style={{
                     width: '100%',
-                    height: '96px',
+                    height: '120px',
                     background: 'linear-gradient(180deg, #e0f2fe 0%, #bae6fd 100%)',
-                    borderRadius: '14px',
+                    borderRadius: '16px',
                     border: '2px solid #38bdf8',
                     display: 'flex',
                     alignItems: 'center',
@@ -929,13 +924,13 @@ export default function PlazaModal({
                   }}
                 >
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <div style={{ transform: 'scale(0.58)' }}>
+                    <div style={{ transform: 'scale(0.68)' }}>
                       <PetSprite speciesId={avatarId} direction={1} frame={1} actionState="HAPPY" lcdMode={false} />
                     </div>
-                    <span style={{ fontSize: '11px', fontWeight: '900' }}>{nickname}</span>
+                    <span style={{ fontSize: '12.5px', fontWeight: '900' }}>{nickname}</span>
                   </div>
 
-                  <div style={{ fontSize: '18px', fontWeight: '900', color: '#ef4444' }}>
+                  <div style={{ fontSize: '22px', fontWeight: '900', color: '#ef4444' }}>
                     {bothChosen
                       ? `${RPS_OPTIONS.find((r) => r.id === mePlayer.choice)?.icon} vs ${
                           RPS_OPTIONS.find((r) => r.id === oppPlayer.choice)?.icon
@@ -945,13 +940,13 @@ export default function PlazaModal({
 
                   {oppPlayer ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      <div style={{ transform: 'scale(0.58)' }}>
+                      <div style={{ transform: 'scale(0.68)' }}>
                         <PetSprite speciesId={oppPlayer.avatarId} direction={-1} frame={0} actionState="HAPPY" lcdMode={false} />
                       </div>
-                      <span style={{ fontSize: '11px', fontWeight: '900' }}>{oppPlayer.nickname}</span>
+                      <span style={{ fontSize: '12.5px', fontWeight: '900' }}>{oppPlayer.nickname}</span>
                     </div>
                   ) : (
-                    <div style={{ fontSize: '11px', color: '#475569', fontWeight: '700' }}>
+                    <div style={{ fontSize: '13px', color: '#475569', fontWeight: '700' }}>
                       상대 입장 대기중...
                     </div>
                   )}
@@ -959,21 +954,21 @@ export default function PlazaModal({
 
                 {oppPlayer && !bothChosen && (
                   <>
-                    <div style={{ fontSize: '11.5px', fontWeight: '800', color: '#334155' }}>
+                    <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#334155' }}>
                       {mePlayer?.choice ? '상대방 선택을 기다리는 중...' : '가위·바위·보를 선택하세요!'}
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                    <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
                       {RPS_OPTIONS.map((opt) => (
                         <button
                           key={opt.id}
                           onClick={() => handleSelectBattleChoice(opt.id)}
                           style={{
                             flex: 1,
-                            padding: '10px',
-                            borderRadius: '12px',
+                            padding: '12px',
+                            borderRadius: '14px',
                             border: mePlayer?.choice === opt.id ? '2.5px solid #0284c7' : '1.5px solid #cbd5e1',
                             background: mePlayer?.choice === opt.id ? '#e0f2fe' : '#ffffff',
-                            fontSize: '18px',
+                            fontSize: '22px',
                             cursor: 'pointer',
                           }}
                         >
@@ -985,8 +980,8 @@ export default function PlazaModal({
                 )}
 
                 {bothChosen && (
-                  <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ fontSize: '13.5px', fontWeight: '900', color: '#0f172a' }}>
+                  <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ fontSize: '15.5px', fontWeight: '900', color: '#0f172a' }}>
                       {battleResultText}
                     </div>
                     <button
@@ -1000,9 +995,9 @@ export default function PlazaModal({
                         background: '#16a34a',
                         color: '#fff',
                         border: 'none',
-                        borderRadius: '10px',
-                        padding: '7px 14px',
-                        fontSize: '12px',
+                        borderRadius: '12px',
+                        padding: '9px 18px',
+                        fontSize: '13.5px',
                         fontWeight: '800',
                         cursor: 'pointer',
                       }}
@@ -1023,10 +1018,10 @@ export default function PlazaModal({
 const giftBtnStyle = {
   flex: 1,
   background: '#ffffff',
-  border: '1px solid #eab308',
-  borderRadius: '8px',
-  padding: '5px 4px',
-  fontSize: '10.5px',
+  border: '1.5px solid #eab308',
+  borderRadius: '10px',
+  padding: '7px 6px',
+  fontSize: '12px',
   fontWeight: '800',
   cursor: 'pointer',
   color: '#0f172a',
