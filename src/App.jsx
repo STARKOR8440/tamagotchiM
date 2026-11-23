@@ -21,11 +21,9 @@ const MENU_IDS = ['FEED', 'PLAY', 'CLEAN', 'SHOP', 'STATUS', 'DEX'];
 const DEV_PASSCODE = '8440';
 
 const FOOD_MENU = [
-  // 1페이지: 식사류 (포만감 95 미만일 때 섭취 가능, 섭취 후 3분 소화 쿨타임)
   { id: 'RICE', category: 'MEAL', name: '🍙 주먹밥', hunger: 20, happiness: 0, energy: 15, clean: 0, biome: 'land', stat: 1 },
   { id: 'RAMEN', category: 'MEAL', name: '🍜 라멘', hunger: 35, happiness: 5, energy: 25, clean: 0, biome: 'land', stat: 2 },
   { id: 'SUSHI', category: 'MEAL', name: '🍣 초밥', hunger: 25, happiness: 10, energy: 20, clean: 0, biome: 'water', stat: 2 },
-  // 2페이지: 간식류 (하루 최대 6회 제한, 쿨타임 없이 즉시 섭취 가능)
   { id: 'CAKE', category: 'SNACK', name: '🍰 케이크', hunger: 10, happiness: 20, energy: 5, clean: 0, biome: 'sky', stat: 1 },
   { id: 'PARFAIT', category: 'SNACK', name: '🍨 파르페', hunger: 12, happiness: 25, energy: 10, clean: 0, biome: 'sky', stat: 2 },
   { id: 'MILK', category: 'SNACK', name: '🥛 우유', hunger: 15, happiness: 8, energy: 15, clean: 10, biome: 'water', stat: 1 },
@@ -67,7 +65,6 @@ export default function App() {
     const parsed = JSON.parse(saved);
     const elapsed = Math.max(0, Math.floor((Date.now() - parsed.lastUpdated) / 1000));
     const decay = Math.floor(elapsed / 90);
-    // 오프라인 체력 회복도 15초당 +1로 상향
     const energyGain = Math.floor(elapsed / 15);
 
     return {
@@ -90,7 +87,7 @@ export default function App() {
   });
 
   const [lcdScreen, setLcdScreen] = useState('PET');
-  const [foodPage, setFoodPage] = useState(0); // 0: 식사(3종), 1: 간식(3종)
+  const [foodPage, setFoodPage] = useState(0);
   const [shopTab, setShopTab] = useState('SKIN');
   const [skinPage, setSkinPage] = useState(0);
   const [selectedMenuIdx, setSelectedMenuIdx] = useState(0);
@@ -101,6 +98,11 @@ export default function App() {
   const [devUnlocked, setDevUnlocked] = useState(false);
   const [actionState, setActionState] = useState('IDLE');
   const [isMuted, setIsMuted] = useState(false);
+
+  // 상단 네온 전광판 실시간 채팅 피드
+  const [tickerMessages, setTickerMessages] = useState([
+    '📡 다마고치 커넥션 광장에 오신 것을 환영합니다! 터치하여 채팅·선물하기 ✨',
+  ]);
 
   const [direction, setDirection] = useState(1);
   const [frame, setFrame] = useState(0);
@@ -113,6 +115,33 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...pet, lastUpdated: Date.now() }));
   }, [pet]);
 
+  // 광장 최신 채팅 내역 폴링 (네온 전광판용, 4초 주기)
+  useEffect(() => {
+    if (!isFirebaseConfigured()) return;
+
+    const fetchTicker = async () => {
+      try {
+        const res = await fetch(`${FIREBASE_DB_URL}/plaza/messages.json?orderBy="$key"&limitToLast=6`);
+        const data = await res.json();
+        if (!data) return;
+
+        const formatted = Object.values(data).map((m) =>
+          m.isSystem ? m.text : `[${m.sender}] ${m.text}`
+        );
+        if (formatted.length > 0) {
+          setTickerMessages(formatted);
+        }
+      } catch {
+        // 네트워크 일시 오류 무시
+      }
+    };
+
+    fetchTicker();
+    const tickerTimer = setInterval(fetchTicker, 4000);
+    return () => clearInterval(tickerTimer);
+  }, [showPlaza]);
+
+  // 친구가 보낸 선물 실시간 수신 체크
   useEffect(() => {
     if (!isFirebaseConfigured() || !pet.userId) return;
 
@@ -250,7 +279,6 @@ export default function App() {
           lastHintAlertRef.current = Date.now();
         }
 
-        // 체력 자연 회복: 15초당 +1 (기존 30초 -> 15초로 2배 향상)
         const nextEnergy = nextAge % 15 === 0 ? Math.min(100, (prev.energy ?? 100) + 1) : (prev.energy ?? 100);
 
         if (nextAge % 90 === 0 && currentSpec.stage !== 'EGG') {
@@ -340,7 +368,6 @@ export default function App() {
     triggerReaction(isHardReset ? '처음부터 새 알! 🥚' : '독립 완료! 2세대 알 도착 🥚');
   };
 
-  // 식사(3종) 및 간식(3종) 통합 처리
   const feedPet = (foodItem) => {
     const now = Date.now();
     const today = getTodayStr();
@@ -370,7 +397,6 @@ export default function App() {
         hunger: Math.min(100, p.hunger + foodItem.hunger),
         happiness: Math.min(100, p.happiness + foodItem.happiness),
         energy: Math.min(100, (p.energy ?? 100) + foodItem.energy),
-        // 소화 쿨타임을 기존 15분에서 3분으로 단축
         digestUntil: now + 3 * 60 * 1000,
         careStats: {
           ...p.careStats,
@@ -538,7 +564,6 @@ export default function App() {
     if (type === 'FEED') {
       setLcdScreen('FOOD');
     } else if (type === 'PLAY') {
-      // 미니게임 입장 체력 조건을 20 -> 12로 완화
       if ((pet.energy ?? 100) < 12) {
         sfx.beep();
         triggerReaction('체력 부족! 밥이나 간식 필요 ⚡');
@@ -618,6 +643,10 @@ export default function App() {
   );
   const todaySnacksUsed = pet.snackDate === getTodayStr() ? pet.snacksToday : 0;
 
+  // 전광판에 흐를 통합 문자열 (길이에 비례해 스크롤 속도 자동 계산)
+  const tickerText = tickerMessages.join('   ★   ');
+  const tickerDuration = Math.max(12, Math.round(tickerText.length * 0.28));
+
   return (
     <div
       style={{
@@ -627,93 +656,188 @@ export default function App() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '14px 12px',
+        padding: '12px 12px',
         boxSizing: 'border-box',
         position: 'relative',
         background: 'linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%)',
       }}
     >
-      {/* 상단 유틸리티 바 */}
+      {/* 네온 LED 전광판 무한 스크롤 애니메이션 스타일 */}
+      <style>{`
+        @keyframes neonMarquee {
+          0% { transform: translateX(0%); }
+          100% { transform: translateX(-50%); }
+        }
+      `}</style>
+
+      {/* 상단 영역 (유틸리티 바 + 네온 채팅 전광판) */}
       <div
         style={{
           width: '100%',
           maxWidth: '420px',
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '4px',
+          flexDirection: 'column',
+          gap: '7px',
           zIndex: 10,
         }}
       >
+        {/* 1행: 상단 유틸리티 바 */}
         <div
-          onClick={handleSecretBadgeTap}
           style={{
+            width: '100%',
             display: 'flex',
+            justifyContent: 'space-between',
             alignItems: 'center',
             gap: '4px',
-            background: '#ffffff',
-            border: '1.5px solid #bae6fd',
-            borderRadius: '20px',
-            padding: '5px 9px',
-            color: '#0f172a',
-            fontSize: '11.5px',
-            fontWeight: '800',
-            boxShadow: '0 2px 6px rgba(15, 23, 42, 0.06)',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            cursor: 'pointer',
           }}
         >
-          <span style={{ color: '#0284c7' }}>●</span>
-          <span>{currentSpec.name}</span>
+          <div
+            onClick={handleSecretBadgeTap}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              background: '#ffffff',
+              border: '1.5px solid #bae6fd',
+              borderRadius: '20px',
+              padding: '5px 9px',
+              color: '#0f172a',
+              fontSize: '11.5px',
+              fontWeight: '800',
+              boxShadow: '0 2px 6px rgba(15, 23, 42, 0.06)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              cursor: 'pointer',
+            }}
+          >
+            <span style={{ color: '#0284c7' }}>●</span>
+            <span>{currentSpec.name}</span>
+          </div>
+
+          <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+            <button
+              onClick={() => {
+                sfx.confirm();
+                setShowPlaza(true);
+              }}
+              style={{ ...topBtnStyle, background: '#e0f2fe', borderColor: '#38bdf8', color: '#0369a1' }}
+              title="실시간 광장 및 1:1 통신 대전"
+            >
+              📡 광장
+            </button>
+            <button
+              onClick={() => {
+                sfx.confirm();
+                setShowShare(true);
+              }}
+              style={topBtnStyle}
+              title="인증샷 저장 및 공유"
+            >
+              📸
+            </button>
+            <button
+              onClick={() => {
+                sfx.confirm();
+                setShowGuide(true);
+              }}
+              style={topBtnStyle}
+              title="사용 가이드"
+            >
+              ?
+            </button>
+            <button onClick={toggleMute} style={topBtnStyle} title="소리 켜기/끄기">
+              {isMuted ? '🔇' : '🔊'}
+            </button>
+            <button
+              onClick={() => {
+                if (window.confirm('현재 캐릭터와 스킨을 초기화하고 새 알부터 시작할까요?')) {
+                  startNextGeneration(true);
+                }
+              }}
+              style={topBtnStyle}
+              title="초기화"
+            >
+              🔄
+            </button>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-          <button
-            onClick={() => {
-              sfx.confirm();
-              setShowPlaza(true);
+        {/* 2행: 실시간 광장 네온 LED 전광판 (터치 시 광장 바로 열림) */}
+        <div
+          onClick={() => {
+            sfx.beep();
+            setShowPlaza(true);
+          }}
+          title="터치하여 광장 채팅 열기"
+          style={{
+            width: '100%',
+            height: '26px',
+            background: 'linear-gradient(90deg, #090d16 0%, #111827 50%, #090d16 100%)',
+            border: '1.5px solid #38bdf8',
+            borderRadius: '12px',
+            boxShadow: '0 0 10px rgba(56, 189, 248, 0.35), inset 0 0 8px rgba(14, 165, 233, 0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            overflow: 'hidden',
+            position: 'relative',
+            cursor: 'pointer',
+            boxSizing: 'border-box',
+          }}
+        >
+          {/* 좌측 LIVE 네온 뱃지 */}
+          <div
+            style={{
+              background: '#0284c7',
+              color: '#ffffff',
+              fontSize: '9px',
+              fontWeight: '900',
+              letterSpacing: '0.5px',
+              padding: '0 7px',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              flexShrink: 0,
+              zIndex: 2,
+              boxShadow: '2px 0 8px rgba(0, 0, 0, 0.6)',
             }}
-            style={{ ...topBtnStyle, background: '#e0f2fe', borderColor: '#38bdf8', color: '#0369a1' }}
-            title="실시간 광장 및 1:1 통신 대전"
           >
-            📡 광장
-          </button>
-          <button
-            onClick={() => {
-              sfx.confirm();
-              setShowShare(true);
-            }}
-            style={topBtnStyle}
-            title="인증샷 저장 및 공유"
-          >
-            📸
-          </button>
-          <button
-            onClick={() => {
-              sfx.confirm();
-              setShowGuide(true);
-            }}
-            style={topBtnStyle}
-            title="사용 가이드"
-          >
-            ?
-          </button>
-          <button onClick={toggleMute} style={topBtnStyle} title="소리 켜기/끄기">
-            {isMuted ? '🔇' : '🔊'}
-          </button>
-          <button
-            onClick={() => {
-              if (window.confirm('현재 캐릭터와 스킨을 초기화하고 새 알부터 시작할까요?')) {
-                startNextGeneration(true);
-              }
-            }}
-            style={topBtnStyle}
-            title="초기화"
-          >
-            🔄
-          </button>
+            LIVE
+          </div>
+
+          {/* 우측 무한 롤링 네온 텍스트 트랙 */}
+          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
+            <div
+              style={{
+                display: 'inline-flex',
+                whiteSpace: 'nowrap',
+                animation: `neonMarquee ${tickerDuration}s linear infinite`,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '11.5px',
+                  fontWeight: '800',
+                  color: '#7dd3fc',
+                  textShadow: '0 0 6px #38bdf8, 0 0 12px #0284c7',
+                  paddingRight: '48px',
+                }}
+              >
+                {tickerText}
+              </span>
+              <span
+                style={{
+                  fontSize: '11.5px',
+                  fontWeight: '800',
+                  color: '#7dd3fc',
+                  textShadow: '0 0 6px #38bdf8, 0 0 12px #0284c7',
+                  paddingRight: '48px',
+                }}
+              >
+                {tickerText}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -728,7 +852,7 @@ export default function App() {
       >
         <div
           style={{
-            transform: 'scale(1.32)',
+            transform: 'scale(1.28)',
             transformOrigin: 'center center',
             display: 'flex',
             alignItems: 'center',
@@ -810,7 +934,6 @@ export default function App() {
                 onFinish={(bonus, msg, customCoins, bonusWins, isWin) => {
                   setPet((p) => ({
                     ...p,
-                    // 체력 소모를 기존 -20에서 -12로 완화
                     energy: Math.max(0, (p.energy ?? 100) - 12),
                     happiness: Math.min(100, p.happiness + bonus),
                     coins: p.coins + customCoins,
