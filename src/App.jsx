@@ -20,7 +20,6 @@ const STORAGE_KEY = 'mobile_tamagotchi_pwa_v1';
 const MENU_IDS = ['FEED', 'PLAY', 'CLEAN', 'SHOP', 'STATUS', 'DEX'];
 const DEV_PASSCODE = '8440';
 
-// 1) FOOD_MENU 상수 교체 (약 22번째 줄)
 const FOOD_MENU = [
   // 1페이지: 식사류
   {
@@ -465,7 +464,6 @@ export default function App() {
     triggerReaction(isHardReset ? '처음부터 새 알! 🥚' : '독립 완료! 2세대 알 도착 🥚');
   };
 
-  // 2) feedPet 함수 교체 (약 303번째 줄)
   const feedPet = (foodItem) => {
     const now = Date.now();
     const today = getTodayStr();
@@ -769,7 +767,7 @@ export default function App() {
         background: 'linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%)',
       }}
     >
-      {/* 네온 LED 전광판: 왼쪽 끝에서 즉시 시작해 3회 롤링 후 자동 리셋 */}
+      {/* 네온 LED 전광판 애니메이션 */}
       <style>{`
         @keyframes neonMarqueeImmediate {
           0% { transform: translateX(8%); }
@@ -928,7 +926,7 @@ export default function App() {
             {tickerHighlight ? 'NEW!' : 'LIVE'}
           </div>
 
-          {/* 우측 트랙: 방금 올라온 최신 메시지 1개만 표시되며 3회 스크롤 후 자동 리셋 */}
+          {/* 우측 트랙 */}
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
             {tickerActive && tickerText ? (
               <div
@@ -1006,7 +1004,6 @@ export default function App() {
               executeMenuAction(MENU_IDS[idx]);
             }}
           >
-            // 2) LCD FOOD 화면 렌더링 블록 교체 (약 640번째 줄)
             {lcdScreen === 'FOOD' && (
               <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '2px', color: '#0f172a' }}>
                 <div style={{ display: 'flex', gap: '2px', width: '100%' }}>
