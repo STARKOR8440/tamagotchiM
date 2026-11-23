@@ -767,12 +767,11 @@ export default function App() {
         background: 'linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%)',
       }}
     >
-      {/* 네온 LED 전광판 애니메이션 */}
+      {/* 네온 LED 전광판 애니메이션: 왼쪽(-100%)에서 오른쪽(100%)으로 스크롤 */}
       <style>{`
-        @keyframes neonMarqueeImmediate {
-          0% { transform: translateX(8%); }
-          12% { transform: translateX(8%); }
-          100% { transform: translateX(-100%); }
+        @keyframes neonMarqueeLeftToRight {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
         }
         @keyframes neonFlashPulse {
           0%, 100% {
@@ -879,7 +878,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* 2행: 실시간 광장 네온 LED 전광판 (최신 메시지 1개만 단독 노출 + 3회 스크롤 후 대기 리셋) */}
+        {/* 2행: 실시간 광장 네온 LED 전광판 (왼쪽 -> 오른쪽 스크롤, 3회 후 리셋) */}
         <div
           onClick={() => {
             sfx.beep();
@@ -926,7 +925,7 @@ export default function App() {
             {tickerHighlight ? 'NEW!' : 'LIVE'}
           </div>
 
-          {/* 우측 트랙 */}
+          {/* 우측 트랙: 왼쪽에서 오른쪽으로 흘러가는 스크롤 */}
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
             {tickerActive && tickerText ? (
               <div
@@ -938,8 +937,8 @@ export default function App() {
                 style={{
                   display: 'inline-block',
                   whiteSpace: 'nowrap',
-                  paddingRight: '40px',
-                  animation: `neonMarqueeImmediate ${tickerDuration}s linear 3`,
+                  minWidth: '100%',
+                  animation: `neonMarqueeLeftToRight ${tickerDuration}s linear 3`,
                 }}
               >
                 <span
@@ -1004,9 +1003,23 @@ export default function App() {
               executeMenuAction(MENU_IDS[idx]);
             }}
           >
+            {/* LCD 화면 내부 overflow 방지 처리 */}
             {lcdScreen === 'FOOD' && (
-              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '2px', color: '#0f172a' }}>
-                <div style={{ display: 'flex', gap: '2px', width: '100%' }}>
+              <div
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '1.5px',
+                  color: '#0f172a',
+                  boxSizing: 'border-box',
+                  overflow: 'hidden',
+                }}
+              >
+                {/* 상단 식사/간식 탭 */}
+                <div style={{ display: 'flex', gap: '2px', width: '100%', flexShrink: 0 }}>
                   <button
                     onClick={() => { sfx.beep(); setFoodPage(0); }}
                     style={{
@@ -1014,10 +1027,11 @@ export default function App() {
                       background: foodPage === 0 ? '#1e293b' : 'rgba(15,23,42,0.08)',
                       color: foodPage === 0 ? '#f8fafc' : '#0f172a',
                       border: '1px solid #1e293b',
-                      borderRadius: '3px',
-                      fontSize: '7.5px',
+                      borderRadius: '2px',
+                      fontSize: '7px',
                       fontWeight: '800',
                       padding: '1px 0',
+                      lineHeight: 1.1,
                       cursor: 'pointer',
                     }}
                   >
@@ -1030,10 +1044,11 @@ export default function App() {
                       background: foodPage === 1 ? '#1e293b' : 'rgba(15,23,42,0.08)',
                       color: foodPage === 1 ? '#f8fafc' : '#0f172a',
                       border: '1px solid #1e293b',
-                      borderRadius: '3px',
-                      fontSize: '7.5px',
+                      borderRadius: '2px',
+                      fontSize: '7px',
                       fontWeight: '800',
                       padding: '1px 0',
+                      lineHeight: 1.1,
                       cursor: 'pointer',
                     }}
                   >
@@ -1041,38 +1056,55 @@ export default function App() {
                   </button>
                 </div>
 
-                {visibleFoods.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => feedPet(item)}
-                    style={{
-                      ...lcdBtnStyle,
-                      padding: '1.5px 4px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'stretch',
-                      gap: '0.5px',
-                      textAlign: 'left',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '8px', fontWeight: '900' }}>
-                      <span>{item.name}</span>
-                      <span
+                {/* 3개 메뉴 리스트 (LCD 내부 높이에 딱 맞게 3등분 배치) */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '1.5px' }}>
+                  {visibleFoods.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => feedPet(item)}
+                      style={{
+                        ...lcdBtnStyle,
+                        flex: 1,
+                        padding: '1px 3px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'stretch',
+                        gap: '0px',
+                        textAlign: 'left',
+                        lineHeight: 1.05,
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '7.4px', fontWeight: '900' }}>
+                        <span>{item.name}</span>
+                        <span
+                          style={{
+                            background: item.price === 0 ? 'rgba(22, 163, 74, 0.2)' : 'rgba(15, 23, 42, 0.12)',
+                            padding: '0 2.5px',
+                            borderRadius: '2px',
+                            fontSize: '6.8px',
+                          }}
+                        >
+                          {item.price === 0 ? '무료' : `${item.price}🪙`}
+                        </span>
+                      </div>
+                      <div
                         style={{
-                          background: item.price === 0 ? 'rgba(22, 163, 74, 0.2)' : 'rgba(15, 23, 42, 0.12)',
-                          padding: '0 3px',
-                          borderRadius: '2px',
-                          fontSize: '7.5px',
+                          fontSize: '6.1px',
+                          fontWeight: '700',
+                          color: '#1e293b',
+                          letterSpacing: '-0.35px',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
                         }}
                       >
-                        {item.price === 0 ? '무료' : `${item.price}🪙`}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: '6.6px', fontWeight: '700', color: '#1e293b', letterSpacing: '-0.3px', whiteSpace: 'nowrap' }}>
-                      {item.desc}
-                    </div>
-                  </button>
-                ))}
+                        {item.desc}
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
