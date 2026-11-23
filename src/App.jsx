@@ -99,10 +99,11 @@ export default function App() {
   const [actionState, setActionState] = useState('IDLE');
   const [isMuted, setIsMuted] = useState(false);
 
-  // 상단 네온 전광판 실시간 채팅 피드
-  const [tickerMessages, setTickerMessages] = useState([
-    '📡 다마고치 커넥션 광장에 오신 것을 환영합니다! 터치하여 채팅·선물하기 ✨',
-  ]);
+  // 상단 네온 전광판 상태 (3회 스크롤 후 리셋 & 새 메시지 강조)
+  const [tickerMessages, setTickerMessages] = useState([]);
+  const [tickerActive, setTickerActive] = useState(false);
+  const [tickerHighlight, setTickerHighlight] = useState(false);
+  const [tickerRunId, setTickerRunId] = useState(0);
 
   const [direction, setDirection] = useState(1);
   const [frame, setFrame] = useState(0);
@@ -110,26 +111,46 @@ export default function App() {
 
   const lastHintAlertRef = useRef(0);
   const devTapRef = useRef({ count: 0, lastTime: 0 });
+  const lastMsgKeyRef = useRef(null);
+  const highlightTimerRef = useRef(null);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...pet, lastUpdated: Date.now() }));
   }, [pet]);
 
-  // 광장 최신 채팅 내역 폴링 (네온 전광판용, 4초 주기)
+  // 새 메시지 감지 시 전광판 3회 스크롤 가동 & 5초간 네온 강조
+  const triggerNewTickerBatch = (formattedList) => {
+    setTickerMessages(formattedList);
+    setTickerActive(true);
+    setTickerHighlight(true);
+    setTickerRunId((id) => id + 1);
+
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = setTimeout(() => {
+      setTickerHighlight(false);
+    }, 5000);
+  };
+
+  // 광장 최신 채팅 내역 폴링 (새 메시지 키가 생겼을 때만 전광판 가동)
   useEffect(() => {
     if (!isFirebaseConfigured()) return;
 
     const fetchTicker = async () => {
       try {
-        const res = await fetch(`${FIREBASE_DB_URL}/plaza/messages.json?orderBy="$key"&limitToLast=6`);
+        const res = await fetch(`${FIREBASE_DB_URL}/plaza/messages.json?orderBy="$key"&limitToLast=5`);
         const data = await res.json();
         if (!data) return;
 
+        const keys = Object.keys(data);
+        const latestKey = keys[keys.length - 1];
+        if (!latestKey || latestKey === lastMsgKeyRef.current) return;
+
+        lastMsgKeyRef.current = latestKey;
         const formatted = Object.values(data).map((m) =>
           m.isSystem ? m.text : `[${m.sender}] ${m.text}`
         );
         if (formatted.length > 0) {
-          setTickerMessages(formatted);
+          triggerNewTickerBatch(formatted);
         }
       } catch {
         // 네트워크 일시 오류 무시
@@ -137,7 +158,7 @@ export default function App() {
     };
 
     fetchTicker();
-    const tickerTimer = setInterval(fetchTicker, 4000);
+    const tickerTimer = setInterval(fetchTicker, 3500);
     return () => clearInterval(tickerTimer);
   }, [showPlaza]);
 
@@ -643,9 +664,9 @@ export default function App() {
   );
   const todaySnacksUsed = pet.snackDate === getTodayStr() ? pet.snacksToday : 0;
 
-  // 전광판에 흐를 통합 문자열 (길이에 비례해 스크롤 속도 자동 계산)
+  // 전광판 텍스트 및 1회 스크롤 시간 계산 (3회 반복 후 자동 리셋)
   const tickerText = tickerMessages.join('   ★   ');
-  const tickerDuration = Math.max(12, Math.round(tickerText.length * 0.28));
+  const tickerDuration = Math.max(9, Math.round(tickerText.length * 0.24));
 
   return (
     <div
@@ -662,11 +683,21 @@ export default function App() {
         background: 'linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%)',
       }}
     >
-      {/* 네온 LED 전광판 무한 스크롤 애니메이션 스타일 */}
+      {/* 네온 LED 전광판 스크롤 & 새 메시지 반짝임 애니메이션 */}
       <style>{`
-        @keyframes neonMarquee {
+        @keyframes neonMarqueeOnce {
           0% { transform: translateX(0%); }
-          100% { transform: translateX(-50%); }
+          100% { transform: translateX(-100%); }
+        }
+        @keyframes neonFlashPulse {
+          0%, 100% {
+            border-color: #facc15;
+            box-shadow: 0 0 14px rgba(250, 204, 21, 0.85), inset 0 0 10px rgba(250, 204, 21, 0.45);
+          }
+          50% {
+            border-color: #f43f5e;
+            box-shadow: 0 0 18px rgba(244, 63, 94, 0.95), inset 0 0 12px rgba(244, 63, 94, 0.55);
+          }
         }
       `}</style>
 
@@ -763,10 +794,11 @@ export default function App() {
           </div>
         </div>
 
-        {/* 2행: 실시간 광장 네온 LED 전광판 (터치 시 광장 바로 열림) */}
+        {/* 2행: 실시간 광장 네온 LED 전광판 (새 메시지 도착 시 3회 스크롤 후 대기 상태 리셋) */}
         <div
           onClick={() => {
             sfx.beep();
+            setTickerHighlight(false);
             setShowPlaza(true);
           }}
           title="터치하여 광장 채팅 열기"
@@ -774,9 +806,12 @@ export default function App() {
             width: '100%',
             height: '26px',
             background: 'linear-gradient(90deg, #090d16 0%, #111827 50%, #090d16 100%)',
-            border: '1.5px solid #38bdf8',
+            border: tickerHighlight ? '1.5px solid #facc15' : '1.5px solid #38bdf8',
             borderRadius: '12px',
-            boxShadow: '0 0 10px rgba(56, 189, 248, 0.35), inset 0 0 8px rgba(14, 165, 233, 0.25)',
+            boxShadow: tickerHighlight
+              ? '0 0 14px rgba(250, 204, 21, 0.85)'
+              : '0 0 10px rgba(56, 189, 248, 0.3), inset 0 0 8px rgba(14, 165, 233, 0.22)',
+            animation: tickerHighlight ? 'neonFlashPulse 0.9s ease-in-out infinite' : 'none',
             display: 'flex',
             alignItems: 'center',
             overflow: 'hidden',
@@ -785,11 +820,11 @@ export default function App() {
             boxSizing: 'border-box',
           }}
         >
-          {/* 좌측 LIVE 네온 뱃지 */}
+          {/* 좌측 LIVE / NEW 네온 뱃지 */}
           <div
             style={{
-              background: '#0284c7',
-              color: '#ffffff',
+              background: tickerHighlight ? '#f59e0b' : '#0284c7',
+              color: tickerHighlight ? '#0f172a' : '#ffffff',
               fontSize: '9px',
               fontWeight: '900',
               letterSpacing: '0.5px',
@@ -800,43 +835,55 @@ export default function App() {
               flexShrink: 0,
               zIndex: 2,
               boxShadow: '2px 0 8px rgba(0, 0, 0, 0.6)',
+              transition: 'background 0.25s',
             }}
           >
-            LIVE
+            {tickerHighlight ? 'NEW!' : 'LIVE'}
           </div>
 
-          {/* 우측 무한 롤링 네온 텍스트 트랙 */}
+          {/* 우측 트랙: 새 메시지 수신 시 3회만 스크롤 후 자동 리셋 */}
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
-            <div
-              style={{
-                display: 'inline-flex',
-                whiteSpace: 'nowrap',
-                animation: `neonMarquee ${tickerDuration}s linear infinite`,
-              }}
-            >
-              <span
+            {tickerActive && tickerText ? (
+              <div
+                key={tickerRunId}
+                onAnimationEnd={() => {
+                  setTickerActive(false);
+                  setTickerHighlight(false);
+                }}
                 style={{
-                  fontSize: '11.5px',
-                  fontWeight: '800',
-                  color: '#7dd3fc',
-                  textShadow: '0 0 6px #38bdf8, 0 0 12px #0284c7',
-                  paddingRight: '48px',
+                  display: 'inline-block',
+                  whiteSpace: 'nowrap',
+                  paddingLeft: '100%',
+                  animation: `neonMarqueeOnce ${tickerDuration}s linear 3`,
                 }}
               >
-                {tickerText}
-              </span>
-              <span
+                <span
+                  style={{
+                    fontSize: '11.5px',
+                    fontWeight: '800',
+                    color: tickerHighlight ? '#fef08a' : '#7dd3fc',
+                    textShadow: tickerHighlight
+                      ? '0 0 7px #facc15, 0 0 14px #f59e0b'
+                      : '0 0 6px #38bdf8, 0 0 12px #0284c7',
+                  }}
+                >
+                  {tickerText}
+                </span>
+              </div>
+            ) : (
+              <div
                 style={{
-                  fontSize: '11.5px',
-                  fontWeight: '800',
-                  color: '#7dd3fc',
-                  textShadow: '0 0 6px #38bdf8, 0 0 12px #0284c7',
-                  paddingRight: '48px',
+                  width: '100%',
+                  textAlign: 'center',
+                  fontSize: '10.5px',
+                  fontWeight: '700',
+                  color: '#64748b',
+                  letterSpacing: '0.3px',
                 }}
               >
-                {tickerText}
-              </span>
-            </div>
+                📡 광장 연결됨 · 터치하여 실시간 채팅 및 선물하기
+              </div>
+            )}
           </div>
         </div>
       </div>
