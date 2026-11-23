@@ -10,11 +10,13 @@ import {
   checkEvolutionStatus,
   evolveCrossRandom,
   reincarnateAdult,
+  resolveSecretVariant,
 } from './evolutionTree';
 import { sfx } from './sound';
 
 const STORAGE_KEY = 'mobile_tamagotchi_pwa_v1';
 const MENU_IDS = ['FEED', 'PLAY', 'CLEAN', 'SHOP', 'STATUS', 'DEX'];
+const DEV_PASSCODE = '1128'; // 개발자 전용 암호 (원하는 번호로 변경 가능)
 
 const getTodayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -73,6 +75,7 @@ export default function App() {
   const [showDex, setShowDex] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [devUnlocked, setDevUnlocked] = useState(false);
   const [actionState, setActionState] = useState('IDLE');
   const [isMuted, setIsMuted] = useState(false);
 
@@ -81,12 +84,34 @@ export default function App() {
   const [reaction, setReaction] = useState('');
 
   const lastHintAlertRef = useRef(0);
+  const devTapRef = useRef({ count: 0, lastTime: 0 });
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...pet, lastUpdated: Date.now() }));
   }, [pet]);
 
-  // 시크릿 캐릭터 등장 시 도감, 시크릿 컬렉션 기록, 전용 스킨 자동 적용
+  // 상단 이름 뱃지 5연타 + 비밀번호 인증 핸들러
+  const handleSecretBadgeTap = () => {
+    if (devUnlocked) return;
+    const now = Date.now();
+    if (now - devTapRef.current.lastTime < 600) {
+      devTapRef.current.count += 1;
+    } else {
+      devTapRef.current.count = 1;
+    }
+    devTapRef.current.lastTime = now;
+
+    if (devTapRef.current.count >= 5) {
+      devTapRef.current.count = 0;
+      const input = window.prompt('Developer Passcode:');
+      if (input === DEV_PASSCODE) {
+        sfx.confirm();
+        setDevUnlocked(true);
+        triggerReaction('DEV 모드 활성화 🛠️');
+      }
+    }
+  };
+
   const applyEvolvedState = (prev, nextSpeciesId) => {
     const evolvedSpec = SPECIES[nextSpeciesId] || SPECIES.ADULT_MAMETCHI;
     const dexKey = evolvedSpec.isSecretVariant ? 'LEGEND_SECRET' : nextSpeciesId;
@@ -119,7 +144,6 @@ export default function App() {
     };
   };
 
-  // 1초 게임 루프
   useEffect(() => {
     const loop = setInterval(() => {
       setPet((prev) => {
@@ -190,7 +214,6 @@ export default function App() {
     return () => clearInterval(loop);
   }, []);
 
-  // LCD 화면 내 캐릭터 도트 애니메이션 루프
   useEffect(() => {
     const animTimer = setInterval(() => {
       setFrame((f) => (f === 0 ? 1 : 0));
@@ -219,7 +242,6 @@ export default function App() {
     if (!nextMuted) sfx.beep();
   };
 
-  // 완전 초기화 vs 2세대 알 계승 분리
   const startNextGeneration = (isHardReset = false) => {
     sfx.confirm();
     if (isHardReset) {
@@ -515,6 +537,7 @@ export default function App() {
         }}
       >
         <div
+          onClick={handleSecretBadgeTap}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -530,6 +553,7 @@ export default function App() {
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
+            cursor: 'pointer',
           }}
         >
           <span style={{ color: '#0284c7' }}>●</span>
@@ -829,6 +853,77 @@ export default function App() {
         </div>
       </div>
 
+      {/* 개발자 전용 숨겨진 테스트 바 (상단 이름표 5연타 + 암호 인증 시에만 표시) */}
+      {devUnlocked && (
+        <div
+          style={{
+            display: 'flex',
+            gap: '5px',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            background: 'rgba(15, 23, 42, 0.92)',
+            padding: '6px 10px',
+            borderRadius: '14px',
+            zIndex: 20,
+          }}
+        >
+          <button
+            onClick={() => {
+              sfx.win();
+              setPet((p) => ({ ...p, coins: (p.coins || 0) + 1000, energy: 100 }));
+              triggerReaction('+1000🪙 & 풀충전');
+            }}
+            style={devBtnStyle}
+          >
+            +1000🪙
+          </button>
+          <button
+            onClick={() => {
+              sfx.win();
+              setPet((p) => ({
+                ...p,
+                gameWins: Math.max(50, (p.gameWins || 0) + 50),
+                careStats: { sky: 50, land: 50, water: 50 },
+              }));
+              triggerReaction('올스탯50 & 50승 세팅');
+            }}
+            style={devBtnStyle}
+          >
+            전설조건
+          </button>
+          <button
+            onClick={() => {
+              const nextId = evolveCrossRandom(currentSpec.stage, pet.careStats, pet);
+              const applied = applyEvolvedState(pet, nextId);
+              sfx.evolve();
+              setPet((p) => ({ ...p, ...applied, hunger: 100, happiness: 100, energy: 100 }));
+              triggerReaction(`진화: ${applied.evolvedSpec.name}`);
+            }}
+            style={devBtnStyle}
+          >
+            즉시진화
+          </button>
+          <button
+            onClick={() => {
+              const nextSec = resolveSecretVariant(pet.speciesId);
+              const applied = applyEvolvedState(pet, nextSec);
+              sfx.evolve();
+              setPet((p) => ({ ...p, ...applied, hunger: 100, happiness: 100, energy: 100 }));
+              triggerReaction(`시크릿: ${applied.evolvedSpec.name}`);
+            }}
+            style={devBtnStyle}
+          >
+            시크릿5종
+          </button>
+          <button
+            onClick={() => setDevUnlocked(false)}
+            style={{ ...devBtnStyle, background: '#ef4444' }}
+          >
+            닫기
+          </button>
+        </div>
+      )}
+
       {/* 인증샷 카드 모달 */}
       {showShare && (
         <ShareCardModal
@@ -919,6 +1014,17 @@ const topBtnStyle = {
   padding: '5px 8px',
   cursor: 'pointer',
   boxShadow: '0 2px 5px rgba(15, 23, 42, 0.06)',
+};
+
+const devBtnStyle = {
+  background: '#0284c7',
+  color: '#ffffff',
+  border: 'none',
+  borderRadius: '8px',
+  fontSize: '10.5px',
+  fontWeight: '800',
+  padding: '5px 8px',
+  cursor: 'pointer',
 };
 
 const lcdBtnStyle = {
