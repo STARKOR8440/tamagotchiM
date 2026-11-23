@@ -16,11 +16,13 @@ import {
 } from './evolutionTree';
 import { sfx } from './sound';
 
+// 테스터 데이터 초기화를 위해 스토리지 키를 v2로 업데이트 (구버전 v1 자동 삭제)
 const STORAGE_KEY = 'mobile_tamagotchi_pwa_v2';
 const LEGACY_STORAGE_KEYS = ['mobile_tamagotchi_pwa_v1'];
 
 const MENU_IDS = ['FEED', 'PLAY', 'CLEAN', 'SHOP', 'STATUS', 'DEX'];
-const DEV_PASSCODE = '8440';
+// 아래 비밀번호를 원하시는 새 코드로 변경하세요
+const DEV_PASSCODE = '1128';
 
 const FOOD_MENU = [
   // 1페이지: 식사류
@@ -133,6 +135,14 @@ const INITIAL_STATE = {
   secretHistory: [],
 };
 
+// 화면 크기에 맞춰 본체 확대 비율 자동 계산 (최대 1.62배까지 확대)
+const calcOptimalScale = () => {
+  if (typeof window === 'undefined') return 1.55;
+  const byWidth = (window.innerWidth - 16) / 252;
+  const byHeight = (window.innerHeight - 108) / 322;
+  return Math.max(1.25, Math.min(1.62, Number(Math.min(byWidth, byHeight).toFixed(2))));
+};
+
 export default function App() {
   const [pet, setPet] = useState(() => {
     LEGACY_STORAGE_KEYS.forEach((oldKey) => {
@@ -187,24 +197,7 @@ export default function App() {
   const [actionState, setActionState] = useState('IDLE');
   const [isMuted, setIsMuted] = useState(false);
   const [nowTs, setNowTs] = useState(() => Date.now());
-
-  // 화면 크기에 맞춰 본체 확대 비율 자동 계산 (최대 1.44배까지 확대)
-  const [shellScale, setShellScale] = useState(() => {
-    if (typeof window === 'undefined') return 1.42;
-    const byWidth = (window.innerWidth - 20) / 260;
-    const byHeight = (window.innerHeight - 135) / 335;
-    return Math.max(1.25, Math.min(1.46, Number(Math.min(byWidth, byHeight).toFixed(2))));
-  });
-
-  useEffect(() => {
-    const handleResize = () => {
-      const byWidth = (window.innerWidth - 20) / 260;
-      const byHeight = (window.innerHeight - 135) / 335;
-      setShellScale(Math.max(1.25, Math.min(1.46, Number(Math.min(byWidth, byHeight).toFixed(2)))));
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const [shellScale, setShellScale] = useState(calcOptimalScale);
 
   // 상단 네온 전광판 상태
   const [tickerText, setTickerText] = useState('');
@@ -220,6 +213,12 @@ export default function App() {
   const devTapRef = useRef({ count: 0, lastTime: 0 });
   const lastMsgKeyRef = useRef(null);
   const highlightTimerRef = useRef(null);
+
+  useEffect(() => {
+    const handleResize = () => setShellScale(calcOptimalScale());
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...pet, lastUpdated: Date.now() }));
@@ -825,7 +824,7 @@ export default function App() {
         }
       `}</style>
 
-      {/* 상단 영역 (폭과 높이 확대로 가독성·터치감 상향) */}
+      {/* 상단 영역 */}
       <div
         style={{
           width: '100%',
@@ -918,7 +917,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* 2행: 실시간 광장 네온 LED 전광판 (높이 32px, 글씨 13px로 확대) */}
+        {/* 2행: 실시간 광장 네온 LED 전광판 */}
         <div
           onClick={() => {
             sfx.beep();
@@ -1010,7 +1009,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* 중앙 다마고치 본체 (화면 크기에 맞춰 최대 1.46배로 확대) */}
+      {/* 중앙 다마고치 본체 (화면 크기에 맞춰 최대 1.62배까지 확대) */}
       <div
         style={{
           flex: 1,
@@ -1636,6 +1635,8 @@ export default function App() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            padding: '14px',
+            boxSizing: 'border-box',
           }}
         >
           <EvolutionDexModal
