@@ -38,6 +38,7 @@ export default function PlazaModal({
 
   const chatEndRef = useRef(null);
 
+  // 내 접속 상태(Presence) 등록 및 15초마다 하트비트 갱신
   useEffect(() => {
     const pushPresence = async () => {
       const payload = {
@@ -70,6 +71,7 @@ export default function PlazaModal({
     return () => clearInterval(hb);
   }, [userId, nickname, avatarId]);
 
+  // 광장 유저 & 채팅 폴링
   useEffect(() => {
     if (!isFirebaseConfigured()) {
       setMessages((prev) =>
@@ -121,6 +123,7 @@ export default function PlazaModal({
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // 1:1 통신 방 폴링
   useEffect(() => {
     if (!joinedRoom || !isFirebaseConfigured()) return;
 
@@ -135,7 +138,7 @@ export default function PlazaModal({
     };
 
     pollRoom();
-    const t = setInterval(pollRoom, 1500);
+    const t = setInterval(pollRoom, 1200);
     return () => clearInterval(t);
   }, [joinedRoom]);
 
@@ -221,6 +224,7 @@ export default function PlazaModal({
     setSelectedTarget(null);
   };
 
+  // 1:1 통신방 입장 (만료된 방 자동 초기화 및 내 선택값 리셋)
   const handleJoinRoom = async () => {
     const cleanCode = roomCode.trim();
     if (cleanCode.length !== 4) {
@@ -242,24 +246,73 @@ export default function PlazaModal({
 
     try {
       const res = await fetch(`${FIREBASE_DB_URL}/plaza/rooms/${cleanCode}.json`);
-      const existing = (await res.json()) || { players: {} };
-      const players = existing.players || {};
+      const existing = await res.json();
+      const now = Date.now();
+
+      // 기존 방이 없거나 마지막 활동 후 2분(120초)이 지났으면 빈 방으로 새로 시작
+      const isExpired = !existing || now - (existing.updatedAt || 0) > 120000;
+      const players = isExpired ? {} : existing.players || {};
 
       const pKeys = Object.keys(players);
       if (pKeys.length >= 2 && !players[userId]) {
-        alert('이미 2명이 통신 중인 방입니다. 다른 코드를 입력하세요!');
+        alert('현재 다른 2명이 대전 중인 방입니다. 다른 4자리 코드를 입력하세요!');
         setJoinedRoom('');
         return;
       }
 
+      // 재입장 시에도 이전 선택 기록(choice)을 깨끗이 비워서 새 대결이 가능하도록 초기화
       players[userId] = { userId, nickname, avatarId, choice: '' };
+      const nextRoomState = { players, updatedAt: now };
+
       await fetch(`${FIREBASE_DB_URL}/plaza/rooms/${cleanCode}.json`, {
         method: 'PUT',
-        body: JSON.stringify({ players, updatedAt: Date.now() }),
+        body: JSON.stringify(nextRoomState),
       });
+      setRoomData(nextRoomState);
     } catch {
       // 무시
     }
+  };
+
+  // 방 나가기 시 서버 DB에서 내 플레이어 정보 제거 (빈 방이면 방 전체 삭제)
+  const handleLeaveRoom = async () => {
+    sfx.beep();
+    const targetRoom = joinedRoom;
+    setJoinedRoom('');
+    setRoomData(null);
+
+    if (!targetRoom || !isFirebaseConfigured()) return;
+
+    try {
+      const res = await fetch(`${FIREBASE_DB_URL}/plaza/rooms/${targetRoom}.json`);
+      const current = await res.json();
+      if (!current || !current.players) return;
+
+      delete current.players[userId];
+      if (Object.keys(current.players).length === 0) {
+        await fetch(`${FIREBASE_DB_URL}/plaza/rooms/${targetRoom}.json`, {
+          method: 'DELETE',
+        });
+      } else {
+        await fetch(`${FIREBASE_DB_URL}/plaza/rooms/${targetRoom}.json`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            players: current.players,
+            updatedAt: Date.now(),
+          }),
+        });
+      }
+    } catch {
+      // 무시
+    }
+  };
+
+  // 모달 전체를 닫을 때도 방에 들어가 있었다면 자동으로 방 정리
+  const handleCloseModal = () => {
+    if (joinedRoom) {
+      handleLeaveRoom();
+    }
+    onClose();
   };
 
   const handleSelectBattleChoice = async (choiceId) => {
@@ -276,10 +329,16 @@ export default function PlazaModal({
     }
 
     try {
-      await fetch(`${FIREBASE_DB_URL}/plaza/rooms/${joinedRoom}/players/${userId}/choice.json`, {
-        method: 'PUT',
-        body: JSON.stringify(choiceId),
-      });
+      await Promise.all([
+        fetch(`${FIREBASE_DB_URL}/plaza/rooms/${joinedRoom}/players/${userId}/choice.json`, {
+          method: 'PUT',
+          body: JSON.stringify(choiceId),
+        }),
+        fetch(`${FIREBASE_DB_URL}/plaza/rooms/${joinedRoom}/updatedAt.json`, {
+          method: 'PUT',
+          body: JSON.stringify(Date.now()),
+        }),
+      ]);
     } catch {
       // 무시
     }
@@ -305,10 +364,12 @@ export default function PlazaModal({
     Object.values(roomData.players).forEach((p) => {
       resetPlayers[p.userId] = { ...p, choice: '' };
     });
-    await fetch(`${FIREBASE_DB_URL}/plaza/rooms/${joinedRoom}/players.json`, {
+    const nextState = { players: resetPlayers, updatedAt: Date.now() };
+    await fetch(`${FIREBASE_DB_URL}/plaza/rooms/${joinedRoom}.json`, {
       method: 'PUT',
-      body: JSON.stringify(resetPlayers),
+      body: JSON.stringify(nextState),
     });
+    setRoomData(nextState);
   };
 
   const onlineList = Object.values(usersMap);
@@ -334,7 +395,7 @@ export default function PlazaModal({
 
   return (
     <div
-      onClick={onClose}
+      onClick={handleCloseModal}
       style={{
         position: 'fixed',
         inset: 0,
@@ -387,7 +448,7 @@ export default function PlazaModal({
             </span>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleCloseModal}
             style={{
               background: '#ef4444',
               color: '#fff',
@@ -755,7 +816,7 @@ export default function PlazaModal({
             </form>
           </>
         ) : (
-          /* 1:1 IR 적외선 통신 대전 화면 (iOS Safari 레이아웃 깨짐 완벽 보완) */
+          /* 1:1 IR 적외선 통신 대전 화면 */
           <div
             style={{
               background: '#f8fafc',
@@ -840,10 +901,7 @@ export default function PlazaModal({
                     방 코드: [{joinedRoom}]
                   </span>
                   <button
-                    onClick={() => {
-                      setJoinedRoom('');
-                      setRoomData(null);
-                    }}
+                    onClick={handleLeaveRoom}
                     style={{
                       background: '#e2e8f0',
                       border: 'none',
