@@ -172,8 +172,9 @@ export default function App() {
   const [devUnlocked, setDevUnlocked] = useState(false);
   const [actionState, setActionState] = useState('IDLE');
   const [isMuted, setIsMuted] = useState(false);
+  const [nowTs, setNowTs] = useState(() => Date.now());
 
-  // 상단 네온 전광판 상태 (방금 올라온 최신 메시지 1개만 단독 표시)
+  // 상단 네온 전광판 상태
   const [tickerText, setTickerText] = useState('');
   const [tickerActive, setTickerActive] = useState(false);
   const [tickerHighlight, setTickerHighlight] = useState(false);
@@ -192,7 +193,6 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...pet, lastUpdated: Date.now() }));
   }, [pet]);
 
-  // 새 메시지 1개 감지 시 전광판 강제 리셋 및 3회 스크롤 가동 & 6초간 네온 강조
   const triggerSingleTicker = (singleMessage) => {
     setTickerText(singleMessage);
     setTickerActive(true);
@@ -205,7 +205,6 @@ export default function App() {
     }, 6000);
   };
 
-  // 광장 가장 최신 메시지 1개만 폴링
   useEffect(() => {
     if (!isFirebaseConfigured()) return;
 
@@ -228,7 +227,7 @@ export default function App() {
           triggerSingleTicker(text);
         }
       } catch {
-        // 네트워크 일시 오류 무시
+        // 무시
       }
     };
 
@@ -237,7 +236,6 @@ export default function App() {
     return () => clearInterval(tickerTimer);
   }, [showPlaza]);
 
-  // 친구가 보낸 선물 실시간 수신 체크
   useEffect(() => {
     if (!isFirebaseConfigured() || !pet.userId) return;
 
@@ -337,6 +335,7 @@ export default function App() {
 
   useEffect(() => {
     const loop = setInterval(() => {
+      setNowTs(Date.now());
       setPet((prev) => {
         const nextAge = prev.ageSeconds + 1;
         const currentSpec = SPECIES[prev.speciesId] || SPECIES.EGG;
@@ -494,6 +493,8 @@ export default function App() {
         return;
       }
 
+      const nextDigestUntil = now + 3 * 60 * 1000;
+      setNowTs(now);
       sfx.eat();
       triggerAction('EAT');
       setPet((p) => ({
@@ -502,7 +503,7 @@ export default function App() {
         hunger: Math.min(100, p.hunger + foodItem.hunger),
         happiness: Math.min(100, p.happiness + foodItem.happiness),
         energy: Math.min(100, (p.energy ?? 100) + foodItem.energy),
-        digestUntil: now + 3 * 60 * 1000,
+        digestUntil: nextDigestUntil,
         careStats: {
           ...p.careStats,
           [foodItem.biome]: (p.careStats?.[foodItem.biome] || 1) + foodItem.stat,
@@ -668,6 +669,7 @@ export default function App() {
     }
 
     if (type === 'FEED') {
+      setNowTs(Date.now());
       setLcdScreen('FOOD');
     } else if (type === 'PLAY') {
       if ((pet.energy ?? 100) < 12) {
@@ -749,7 +751,12 @@ export default function App() {
   );
   const todaySnacksUsed = pet.snackDate === getTodayStr() ? pet.snacksToday : 0;
 
-  // 단일 최신 메시지 길이에 맞춘 1회 롤링 시간 (최소 5.5초)
+  // 소화 남은 시간 실시간 계산 (MM:SS)
+  const digestRemainSec = Math.max(0, Math.ceil(((pet.digestUntil || 0) - nowTs) / 1000));
+  const digestMinStr = String(Math.floor(digestRemainSec / 60)).padStart(2, '0');
+  const digestSecStr = String(digestRemainSec % 60).padStart(2, '0');
+  const mealTabLabel = digestRemainSec > 0 ? `식사(${digestMinStr}:${digestSecStr})` : '식사(가능)';
+
   const tickerDuration = Math.max(5.5, Math.round(tickerText.length * 0.22));
 
   return (
@@ -925,7 +932,7 @@ export default function App() {
             {tickerHighlight ? 'NEW!' : 'LIVE'}
           </div>
 
-          {/* 우측 트랙: 왼쪽에서 오른쪽으로 흘러가는 스크롤 */}
+          {/* 우측 트랙 */}
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
             {tickerActive && tickerText ? (
               <div
@@ -1003,7 +1010,7 @@ export default function App() {
               executeMenuAction(MENU_IDS[idx]);
             }}
           >
-            {/* LCD 화면 내부 overflow 방지 처리 */}
+            {/* LCD 식사 및 간식 화면 (실시간 소화 카운트다운 + 코인 부족 흐림 처리) */}
             {lcdScreen === 'FOOD' && (
               <div
                 style={{
@@ -1028,14 +1035,14 @@ export default function App() {
                       color: foodPage === 0 ? '#f8fafc' : '#0f172a',
                       border: '1px solid #1e293b',
                       borderRadius: '2px',
-                      fontSize: '7px',
+                      fontSize: '6.8px',
                       fontWeight: '800',
                       padding: '1px 0',
                       lineHeight: 1.1,
                       cursor: 'pointer',
                     }}
                   >
-                    식사(3분쿨)
+                    {mealTabLabel}
                   </button>
                   <button
                     onClick={() => { sfx.beep(); setFoodPage(1); }}
@@ -1045,7 +1052,7 @@ export default function App() {
                       color: foodPage === 1 ? '#f8fafc' : '#0f172a',
                       border: '1px solid #1e293b',
                       borderRadius: '2px',
-                      fontSize: '7px',
+                      fontSize: '6.8px',
                       fontWeight: '800',
                       padding: '1px 0',
                       lineHeight: 1.1,
@@ -1056,54 +1063,69 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* 3개 메뉴 리스트 (LCD 내부 높이에 딱 맞게 3등분 배치) */}
+                {/* 3개 메뉴 리스트 */}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '1.5px' }}>
-                  {visibleFoods.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => feedPet(item)}
-                      style={{
-                        ...lcdBtnStyle,
-                        flex: 1,
-                        padding: '1px 3px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'center',
-                        alignItems: 'stretch',
-                        gap: '0px',
-                        textAlign: 'left',
-                        lineHeight: 1.05,
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '7.4px', fontWeight: '900' }}>
-                        <span>{item.name}</span>
-                        <span
-                          style={{
-                            background: item.price === 0 ? 'rgba(22, 163, 74, 0.2)' : 'rgba(15, 23, 42, 0.12)',
-                            padding: '0 2.5px',
-                            borderRadius: '2px',
-                            fontSize: '6.8px',
-                          }}
-                        >
-                          {item.price === 0 ? '무료' : `${item.price}🪙`}
-                        </span>
-                      </div>
-                      <div
+                  {visibleFoods.map((item) => {
+                    const canAfford = (pet.coins || 0) >= (item.price || 0);
+                    const isMealCooling = item.category === 'MEAL' && digestRemainSec > 0;
+                    const isReady = canAfford && !isMealCooling;
+
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => feedPet(item)}
                         style={{
-                          fontSize: '6.1px',
-                          fontWeight: '700',
-                          color: '#1e293b',
-                          letterSpacing: '-0.35px',
-                          whiteSpace: 'nowrap',
+                          ...lcdBtnStyle,
+                          flex: 1,
+                          padding: '1px 3px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'center',
+                          alignItems: 'stretch',
+                          gap: '0px',
+                          textAlign: 'left',
+                          lineHeight: 1.05,
                           overflow: 'hidden',
-                          textOverflow: 'ellipsis',
+                          background: isReady ? 'rgba(255, 255, 255, 0.52)' : 'rgba(100, 116, 139, 0.22)',
+                          border: isReady ? '1px solid #334155' : '1px dashed #64748b',
+                          opacity: isReady ? 1 : 0.48,
                         }}
                       >
-                        {item.desc}
-                      </div>
-                    </button>
-                  ))}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '7.4px', fontWeight: '900' }}>
+                          <span style={{ color: isReady ? '#0f172a' : '#475569' }}>{item.name}</span>
+                          <span
+                            style={{
+                              background:
+                                item.price === 0
+                                  ? 'rgba(22, 163, 74, 0.2)'
+                                  : canAfford
+                                  ? 'rgba(15, 23, 42, 0.12)'
+                                  : 'rgba(239, 68, 68, 0.22)',
+                              color: !canAfford ? '#991b1b' : '#0f172a',
+                              padding: '0 2.5px',
+                              borderRadius: '2px',
+                              fontSize: '6.8px',
+                            }}
+                          >
+                            {item.price === 0 ? '무료' : `${item.price}🪙`}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '6.1px',
+                            fontWeight: '700',
+                            color: isReady ? '#1e293b' : '#475569',
+                            letterSpacing: '-0.35px',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {item.desc}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -1130,8 +1152,20 @@ export default function App() {
             )}
 
             {lcdScreen === 'SHOP' && (
-              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '2px', color: '#0f172a' }}>
-                <div style={{ display: 'flex', gap: '3px', width: '100%' }}>
+              <div
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '2px',
+                  color: '#0f172a',
+                  boxSizing: 'border-box',
+                  overflow: 'hidden',
+                }}
+              >
+                <div style={{ display: 'flex', gap: '3px', width: '100%', flexShrink: 0 }}>
                   <button
                     onClick={() => { sfx.beep(); setShopTab('SKIN'); }}
                     style={{
@@ -1140,7 +1174,8 @@ export default function App() {
                       color: shopTab === 'SKIN' ? '#f8fafc' : '#0f172a',
                       border: '1px solid #1e293b',
                       borderRadius: '3px',
-                      fontSize: '8.5px',
+                      fontSize: '8px',
+                      fontWeight: '800',
                       padding: '1px 0',
                       cursor: 'pointer',
                     }}
@@ -1155,7 +1190,8 @@ export default function App() {
                       color: shopTab === 'ITEM' ? '#f8fafc' : '#0f172a',
                       border: '1px solid #1e293b',
                       borderRadius: '3px',
-                      fontSize: '8.5px',
+                      fontSize: '8px',
+                      fontWeight: '800',
                       padding: '1px 0',
                       cursor: 'pointer',
                     }}
@@ -1165,27 +1201,43 @@ export default function App() {
                 </div>
 
                 {shopTab === 'SKIN' ? (
-                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', width: '100%' }}>
+                  <div style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '2px' }}>
+                    <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', width: '100%' }}>
                       {pagedSkins.map((key) => {
                         const info = SHELL_SKINS[key];
                         const unlocked = pet.unlockedSkins?.includes(key);
                         const equipped = pet.skin === key;
+                        const canAfford = unlocked || (pet.coins || 0) >= info.price;
+
                         return (
                           <button
                             key={key}
                             onClick={() => buyOrEquipSkin(key)}
                             style={{
-                              background: equipped ? '#1e293b' : 'rgba(255,255,255,0.45)',
-                              color: equipped ? '#f8fafc' : '#0f172a',
-                              border: '1px solid #334155',
+                              background: equipped
+                                ? '#1e293b'
+                                : canAfford
+                                ? 'rgba(255,255,255,0.52)'
+                                : 'rgba(100, 116, 139, 0.22)',
+                              color: equipped ? '#f8fafc' : canAfford ? '#0f172a' : '#475569',
+                              border: canAfford ? '1px solid #334155' : '1px dashed #64748b',
                               borderRadius: '3px',
-                              fontSize: '7.8px',
-                              padding: '2px 1px',
+                              fontSize: '7.4px',
+                              fontWeight: '800',
+                              padding: '2px 2px',
                               cursor: 'pointer',
+                              opacity: canAfford ? 1 : 0.48,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              lineHeight: 1.1,
                             }}
                           >
-                            {info.name.slice(0, 4)} {unlocked ? (equipped ? '✓' : '착용') : `${info.price}🪙`}
+                            <span>{info.name.slice(0, 5)}</span>
+                            <span style={{ fontSize: '6.8px', color: equipped ? '#bae6fd' : !canAfford ? '#991b1b' : '#334155' }}>
+                              {unlocked ? (equipped ? '✓ 장착중' : '착용하기') : `${info.price}🪙`}
+                            </span>
                           </button>
                         );
                       })}
@@ -1197,63 +1249,144 @@ export default function App() {
                         background: 'rgba(15,23,42,0.14)',
                         border: '1px solid #334155',
                         borderRadius: '3px',
-                        fontSize: '8px',
-                        padding: '1px',
+                        fontSize: '7.5px',
+                        fontWeight: '800',
+                        padding: '1.5px',
                         cursor: 'pointer',
                         color: '#0f172a',
+                        flexShrink: 0,
                       }}
                     >
                       다음 스킨 ▶ ({safeSkinPage + 1}/{totalSkinPages})
                     </button>
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', width: '100%' }}>
-                    <button onClick={buyEnergyDrink} style={shopGridItemStyle}>
-                      ⚡드링크 15🪙
-                    </button>
-                    <button onClick={() => buyAttributeFruit('sky', '하늘')} style={shopGridItemStyle}>
-                      🍑하늘 30🪙
-                    </button>
-                    <button onClick={() => buyAttributeFruit('land', '대지')} style={shopGridItemStyle}>
-                      🍏대지 30🪙
-                    </button>
-                    <button onClick={() => buyAttributeFruit('water', '바다')} style={shopGridItemStyle}>
-                      🫐바다 30🪙
-                    </button>
-                    <button
-                      onClick={buyReincarnationOrb}
-                      style={{
-                        ...shopGridItemStyle,
-                        gridColumn: '1 / -1',
-                        background: 'rgba(254, 240, 138, 0.75)',
-                        fontWeight: 'bold',
-                        textAlign: 'center',
-                      }}
-                    >
-                      🔮 성체 환생구슬 1000🪙
-                    </button>
+                  <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', width: '100%' }}>
+                    {[
+                      { id: 'DRINK', label: '⚡드링크', price: 15, desc: '체력+50', action: buyEnergyDrink },
+                      { id: 'SKY', label: '🍑하늘열매', price: 30, desc: '하늘+3', action: () => buyAttributeFruit('sky', '하늘') },
+                      { id: 'LAND', label: '🍏대지열매', price: 30, desc: '대지+3', action: () => buyAttributeFruit('land', '대지') },
+                      { id: 'WATER', label: '🫐바다열매', price: 30, desc: '바다+3', action: () => buyAttributeFruit('water', '바다') },
+                    ].map((it) => {
+                      const canAfford = (pet.coins || 0) >= it.price;
+                      return (
+                        <button
+                          key={it.id}
+                          onClick={it.action}
+                          style={{
+                            ...shopGridItemStyle,
+                            padding: '1.5px 2px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            lineHeight: 1.08,
+                            background: canAfford ? 'rgba(255,255,255,0.52)' : 'rgba(100, 116, 139, 0.22)',
+                            border: canAfford ? '1px solid #334155' : '1px dashed #64748b',
+                            opacity: canAfford ? 1 : 0.48,
+                          }}
+                        >
+                          <div style={{ fontSize: '7.2px', fontWeight: '900', color: canAfford ? '#0f172a' : '#475569' }}>
+                            {it.label} <span style={{ color: !canAfford ? '#991b1b' : '#0369a1' }}>{it.price}🪙</span>
+                          </div>
+                          <div style={{ fontSize: '6.4px', fontWeight: '700', color: canAfford ? '#1e293b' : '#475569' }}>
+                            {it.desc}
+                          </div>
+                        </button>
+                      );
+                    })}
+
+                    {(() => {
+                      const canUseOrb = currentSpec.stage === 'ADULT' && (pet.coins || 0) >= 1000;
+                      return (
+                        <button
+                          onClick={buyReincarnationOrb}
+                          style={{
+                            ...shopGridItemStyle,
+                            gridColumn: '1 / -1',
+                            padding: '2px 4px',
+                            background: canUseOrb ? 'rgba(254, 240, 138, 0.8)' : 'rgba(100, 116, 139, 0.22)',
+                            border: canUseOrb ? '1px solid #854d0e' : '1px dashed #64748b',
+                            opacity: canUseOrb ? 1 : 0.48,
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            lineHeight: 1.1,
+                          }}
+                        >
+                          <span style={{ fontSize: '7.3px', fontWeight: '900', color: canUseOrb ? '#0f172a' : '#475569' }}>
+                            🔮 환생구슬 <span style={{ fontSize: '6.3px', fontWeight: '700' }}>(다른 성체 변신)</span>
+                          </span>
+                          <span style={{ fontSize: '7px', fontWeight: '900', color: !canUseOrb ? '#991b1b' : '#854d0e' }}>
+                            1000🪙
+                          </span>
+                        </button>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
             )}
 
+            {/* LCD 상태 화면 (포만·행복·체력 + 하늘·대지·바다 3대 속성 표시) */}
             {lcdScreen === 'STATUS' && (
               <div
                 style={{
                   width: '100%',
-                  fontSize: '8.5px',
+                  height: '100%',
+                  fontSize: '8px',
                   color: '#0f172a',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '2.5px',
+                  justifyContent: 'space-between',
+                  gap: '1.5px',
+                  boxSizing: 'border-box',
+                  overflow: 'hidden',
                 }}
               >
-                <div style={{ textAlign: 'center', borderBottom: '1px solid #334155', paddingBottom: '1px' }}>
+                <div
+                  style={{
+                    textAlign: 'center',
+                    borderBottom: '1px solid #334155',
+                    paddingBottom: '1px',
+                    fontWeight: '900',
+                    fontSize: '7.8px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
                   {currentSpec.name} ({Math.floor(pet.ageSeconds / 60)}분)
                 </div>
+
                 <StatGauge label="포만" value={pet.hunger} />
                 <StatGauge label="행복" value={pet.happiness} />
                 <StatGauge label="체력" value={pet.energy ?? 100} />
+
+                {/* 하늘 · 대지 · 바다 3대 속성 스탯 표시 바 */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: '2px',
+                    width: '100%',
+                    marginTop: '1px',
+                  }}
+                >
+                  <div style={biomeBadgeStyle}>
+                    <span>☁️하늘</span>
+                    <strong>{pet.careStats?.sky ?? 1}</strong>
+                  </div>
+                  <div style={biomeBadgeStyle}>
+                    <span>🌱대지</span>
+                    <strong>{pet.careStats?.land ?? 1}</strong>
+                  </div>
+                  <div style={biomeBadgeStyle}>
+                    <span>💧바다</span>
+                    <strong>{pet.careStats?.water ?? 1}</strong>
+                  </div>
+                </div>
+
                 {canGraduate ? (
                   <button
                     onClick={() => startNextGeneration(false)}
@@ -1262,15 +1395,16 @@ export default function App() {
                       color: '#f8fafc',
                       border: 'none',
                       borderRadius: '3px',
-                      fontSize: '8px',
-                      padding: '2px',
+                      fontSize: '7.5px',
+                      fontWeight: '800',
+                      padding: '1.5px',
                       cursor: 'pointer',
                     }}
                   >
                     🥚 2세대 알 물려받기
                   </button>
                 ) : (
-                  <div style={{ fontSize: '8px', textAlign: 'center', opacity: 0.85 }}>
+                  <div style={{ fontSize: '7.2px', fontWeight: '800', textAlign: 'center', opacity: 0.85 }}>
                     승리 {pet.gameWins || 0}회 · 도감 {pet.unlockedSpecies?.length || 1}/35
                   </div>
                 )}
@@ -1541,4 +1675,16 @@ const shopGridItemStyle = {
   color: '#0f172a',
   cursor: 'pointer',
   textAlign: 'center',
+};
+
+const biomeBadgeStyle = {
+  background: 'rgba(255, 255, 255, 0.45)',
+  border: '1px solid #475569',
+  borderRadius: '3px',
+  padding: '1px 2px',
+  fontSize: '6.8px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  color: '#0f172a',
 };
