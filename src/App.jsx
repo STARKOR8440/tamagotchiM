@@ -22,7 +22,7 @@ const LEGACY_STORAGE_KEYS = ['mobile_tamagotchi_pwa_v1'];
 
 const MENU_IDS = ['FEED', 'PLAY', 'CLEAN', 'SHOP', 'STATUS', 'DEX'];
 // 아래 비밀번호를 원하시는 새 코드로 변경하세요
-const DEV_PASSCODE = '1128';
+const DEV_PASSCODE = '8440';
 
 const FOOD_MENU = [
   // 1페이지: 식사류
@@ -1529,6 +1529,28 @@ export default function App() {
             style={devBtnStyle}
           >
             시크릿5종
+          </button>
+          <button
+            onClick={async () => {
+              if (!isFirebaseConfigured()) {
+                alert('Firebase DB가 연결되어 있지 않습니다.');
+                return;
+              }
+              if (!window.confirm('서버의 광장 채팅·접속자·방 기록을 모두 초기화할까요?')) return;
+              try {
+                await fetch(`${FIREBASE_DB_URL}/plaza.json`, { method: 'DELETE' });
+                lastMsgKeyRef.current = null;
+                setTickerText('');
+                setTickerActive(false);
+                sfx.confirm();
+                triggerReaction('광장 서버 DB 초기화 완료 🧹');
+              } catch {
+                alert('광장 초기화 중 오류가 발생했습니다.');
+              }
+            }}
+            style={{ ...devBtnStyle, background: '#d97706' }}
+          >
+            광장초기화
           </button>
           <button
             onClick={() => setDevUnlocked(false)}
