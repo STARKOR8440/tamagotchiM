@@ -22,7 +22,7 @@ const LEGACY_STORAGE_KEYS = ['mobile_tamagotchi_pwa_v1'];
 
 const MENU_IDS = ['FEED', 'PLAY', 'CLEAN', 'SHOP', 'STATUS', 'DEX'];
 // 아래 비밀번호를 원하시는 새 코드로 변경하세요
-const DEV_PASSCODE = '8440';
+const DEV_PASSCODE = '1128';
 
 const FOOD_MENU = [
   // 1페이지: 식사류
