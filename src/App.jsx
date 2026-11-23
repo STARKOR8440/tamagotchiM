@@ -10,7 +10,6 @@ import {
   checkEvolutionStatus,
   evolveCrossRandom,
   reincarnateAdult,
-  resolveSecretVariant,
 } from './evolutionTree';
 import { sfx } from './sound';
 
@@ -82,7 +81,6 @@ export default function App() {
   const [reaction, setReaction] = useState('');
 
   const lastHintAlertRef = useRef(0);
-  const cheatSeqRef = useRef([]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...pet, lastUpdated: Date.now() }));
@@ -219,106 +217,6 @@ export default function App() {
     sfx.muted = nextMuted;
     setIsMuted(nextMuted);
     if (!nextMuted) sfx.beep();
-  };
-
-  // 히든 치트 커맨드 4종
-  const recordCheatInput = (btn) => {
-    const nextSeq = [...cheatSeqRef.current, btn].slice(-5);
-    cheatSeqRef.current = nextSeq;
-    const code = nextSeq.join('');
-
-    if (code === 'AABBC') {
-      cheatSeqRef.current = [];
-      sfx.evolve();
-      triggerAction('HAPPY');
-      setPet((p) => ({
-        ...p,
-        coins: (p.coins || 0) + 500,
-        energy: 100,
-      }));
-      setLcdScreen('PET');
-      setShowDex(false);
-      setShowGuide(false);
-      triggerReaction('치트 발동! +500🪙 & 풀충전 🎉');
-      return true;
-    }
-
-    if (code === 'BBACC') {
-      cheatSeqRef.current = [];
-      sfx.win();
-      triggerAction('HAPPY');
-      setPet((p) => ({
-        ...p,
-        coins: (p.coins || 0) + 2000,
-        gameWins: Math.max(50, (p.gameWins || 0) + 50),
-        energy: 100,
-        careStats: {
-          sky: Math.max(50, (p.careStats?.sky || 1) + 50),
-          land: Math.max(50, (p.careStats?.land || 1) + 50),
-          water: Math.max(50, (p.careStats?.water || 1) + 50),
-        },
-      }));
-      setLcdScreen('PET');
-      setShowDex(false);
-      setShowGuide(false);
-      triggerReaction('전설 조건 달성! 올스탯50 & 50승 🔮');
-      return true;
-    }
-
-    if (code === 'CCABB') {
-      cheatSeqRef.current = [];
-      const currentSpec = SPECIES[pet.speciesId] || SPECIES.EGG;
-      const nextSpeciesId =
-        currentSpec.stage === 'ADULT'
-          ? reincarnateAdult(pet.speciesId, pet.careStats, pet.unlockedSpecies, pet.gameWins || 0)
-          : evolveCrossRandom(currentSpec.stage, pet.careStats, pet);
-
-      const applied = applyEvolvedState(pet, nextSpeciesId);
-      sfx.evolve();
-      triggerAction('HAPPY');
-      setPet((p) => ({
-        ...p,
-        ...applied,
-        hunger: 100,
-        happiness: 100,
-        cleanliness: 100,
-        energy: 100,
-        poopCount: 0,
-      }));
-      setLcdScreen('PET');
-      setShowDex(false);
-      setShowGuide(false);
-      triggerReaction(
-        applied.evolvedSpec.bonusSkin
-          ? `시크릿! ${applied.evolvedSpec.name} + 전용스킨! 🎁`
-          : `치트 진화! ${applied.evolvedSpec.name} ✨`
-      );
-      return true;
-    }
-
-    if (code === 'ACACB') {
-      cheatSeqRef.current = [];
-      const nextSecretId = resolveSecretVariant(pet.speciesId);
-      const applied = applyEvolvedState(pet, nextSecretId);
-      sfx.evolve();
-      triggerAction('HAPPY');
-      setPet((p) => ({
-        ...p,
-        ...applied,
-        hunger: 100,
-        happiness: 100,
-        cleanliness: 100,
-        energy: 100,
-        poopCount: 0,
-      }));
-      setLcdScreen('PET');
-      setShowDex(false);
-      setShowGuide(false);
-      triggerReaction(`시크릿 소환! ${applied.evolvedSpec.name} + 전용스킨 🎁`);
-      return true;
-    }
-
-    return false;
   };
 
   // 완전 초기화 vs 2세대 알 계승 분리
@@ -555,7 +453,6 @@ export default function App() {
   };
 
   const handlePressA = () => {
-    if (recordCheatInput('A')) return;
     sfx.beep();
     if (lcdScreen === 'SHOP') {
       setShopTab((prev) => (prev === 'SKIN' ? 'ITEM' : 'SKIN'));
@@ -565,7 +462,6 @@ export default function App() {
   };
 
   const handlePressB = () => {
-    if (recordCheatInput('B')) return;
     if (lcdScreen === 'SHOP') {
       sfx.beep();
       setShopTab((prev) => (prev === 'SKIN' ? 'ITEM' : 'SKIN'));
@@ -575,7 +471,6 @@ export default function App() {
   };
 
   const handlePressC = () => {
-    if (recordCheatInput('C')) return;
     sfx.beep();
     setLcdScreen('PET');
   };
