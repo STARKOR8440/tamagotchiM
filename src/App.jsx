@@ -5,6 +5,8 @@ import TamagotchiShell, { SHELL_SKINS } from './TamagotchiShell';
 import EvolutionDexModal from './EvolutionDexModal';
 import GuideModal from './GuideModal';
 import ShareCardModal from './ShareCardModal';
+import PlazaModal from './PlazaModal';
+import { FIREBASE_DB_URL, isFirebaseConfigured } from './firebaseConfig';
 import {
   SPECIES,
   checkEvolutionStatus,
@@ -16,11 +18,15 @@ import { sfx } from './sound';
 
 const STORAGE_KEY = 'mobile_tamagotchi_pwa_v1';
 const MENU_IDS = ['FEED', 'PLAY', 'CLEAN', 'SHOP', 'STATUS', 'DEX'];
-const DEV_PASSCODE = '1128'; // 개발자 전용 암호 (원하는 번호로 변경 가능)
+const DEV_PASSCODE = '8440';
 
 const getTodayStr = () => new Date().toISOString().slice(0, 10);
+const createUserId = () => 'u_' + Math.random().toString(36).slice(2, 10);
 
 const INITIAL_STATE = {
+  userId: createUserId(),
+  nickname: '다마친구',
+  plazaAvatarId: 'BABY_MARU',
   hunger: 75,
   happiness: 75,
   cleanliness: 90,
@@ -55,6 +61,9 @@ export default function App() {
     return {
       ...INITIAL_STATE,
       ...parsed,
+      userId: parsed.userId || createUserId(),
+      nickname: parsed.nickname || '다마친구',
+      plazaAvatarId: parsed.plazaAvatarId || (parsed.speciesId !== 'EGG' ? parsed.speciesId : 'BABY_MARU'),
       hunger: Math.max(0, parsed.hunger - decay),
       happiness: Math.max(0, parsed.happiness - decay),
       cleanliness: Math.max(0, parsed.cleanliness - decay),
@@ -75,6 +84,7 @@ export default function App() {
   const [showDex, setShowDex] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [showPlaza, setShowPlaza] = useState(false);
   const [devUnlocked, setDevUnlocked] = useState(false);
   const [actionState, setActionState] = useState('IDLE');
   const [isMuted, setIsMuted] = useState(false);
@@ -90,7 +100,51 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...pet, lastUpdated: Date.now() }));
   }, [pet]);
 
-  // 상단 이름 뱃지 5연타 + 비밀번호 인증 핸들러
+  // 친구가 보낸 선물 실시간 수신 체크 (5초 간격)
+  useEffect(() => {
+    if (!isFirebaseConfigured() || !pet.userId) return;
+
+    const checkGifts = async () => {
+      try {
+        const res = await fetch(`${FIREBASE_DB_URL}/plaza/gifts/${pet.userId}.json`);
+        const gifts = await res.json();
+        if (!gifts) return;
+
+        // 수신 후 서버 큐 비우기
+        await fetch(`${FIREBASE_DB_URL}/plaza/gifts/${pet.userId}.json`, { method: 'DELETE' });
+
+        const list = Object.values(gifts);
+        if (list.length > 0) {
+          const latest = list[list.length - 1];
+          sfx.win();
+          triggerAction('HAPPY');
+          setPet((p) => {
+            let addHappiness = 0;
+            let addHunger = 0;
+            let addCoins = 0;
+            list.forEach((g) => {
+              if (g.type === 'HEART') addHappiness += 15;
+              if (g.type === 'CAKE') addHunger += 15;
+              if (g.type === 'COIN') addCoins += 20;
+            });
+            return {
+              ...p,
+              happiness: Math.min(100, p.happiness + addHappiness),
+              hunger: Math.min(100, p.hunger + addHunger),
+              coins: (p.coins || 0) + addCoins,
+            };
+          });
+          triggerReaction(`🎁 [${latest.from}]님의 선물 도착!`);
+        }
+      } catch {
+        // 무시
+      }
+    };
+
+    const giftTimer = setInterval(checkGifts, 5000);
+    return () => clearInterval(giftTimer);
+  }, [pet.userId]);
+
   const handleSecretBadgeTap = () => {
     if (devUnlocked) return;
     const now = Date.now();
@@ -136,6 +190,7 @@ export default function App() {
 
     return {
       speciesId: nextSpeciesId,
+      plazaAvatarId: nextSpeciesId,
       unlockedSpecies: nextUnlockedSpecies,
       secretHistory: nextSecretHistory,
       skin: nextSkin,
@@ -153,6 +208,7 @@ export default function App() {
 
         let evolvedPatch = {
           speciesId: prev.speciesId,
+          plazaAvatarId: prev.plazaAvatarId,
           unlockedSpecies: prev.unlockedSpecies || ['EGG'],
           secretHistory: prev.secretHistory || [],
           skin: prev.skin,
@@ -165,6 +221,7 @@ export default function App() {
           const applied = applyEvolvedState(prev, nextSpeciesId);
           evolvedPatch = {
             speciesId: applied.speciesId,
+            plazaAvatarId: applied.plazaAvatarId,
             unlockedSpecies: applied.unlockedSpecies,
             secretHistory: applied.secretHistory,
             skin: applied.skin,
@@ -245,13 +302,18 @@ export default function App() {
   const startNextGeneration = (isHardReset = false) => {
     sfx.confirm();
     if (isHardReset) {
-      setPet({
+      setPet((prev) => ({
         ...INITIAL_STATE,
+        userId: prev.userId,
+        nickname: prev.nickname,
         snackDate: getTodayStr(),
-      });
+      }));
     } else {
       setPet((prev) => ({
         ...INITIAL_STATE,
+        userId: prev.userId,
+        nickname: prev.nickname,
+        plazaAvatarId: prev.plazaAvatarId,
         snackDate: getTodayStr(),
         coins: prev.coins + 50,
         skin: prev.skin,
@@ -518,7 +580,7 @@ export default function App() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '14px 16px',
+        padding: '14px 12px',
         boxSizing: 'border-box',
         position: 'relative',
         background: 'linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%)',
@@ -532,7 +594,7 @@ export default function App() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          gap: '6px',
+          gap: '4px',
           zIndex: 10,
         }}
       >
@@ -541,13 +603,13 @@ export default function App() {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '5px',
+            gap: '4px',
             background: '#ffffff',
             border: '1.5px solid #bae6fd',
             borderRadius: '20px',
-            padding: '5px 10px',
+            padding: '5px 9px',
             color: '#0f172a',
-            fontSize: '12px',
+            fontSize: '11.5px',
             fontWeight: '800',
             boxShadow: '0 2px 6px rgba(15, 23, 42, 0.06)',
             whiteSpace: 'nowrap',
@@ -564,12 +626,22 @@ export default function App() {
           <button
             onClick={() => {
               sfx.confirm();
+              setShowPlaza(true);
+            }}
+            style={{ ...topBtnStyle, background: '#e0f2fe', borderColor: '#38bdf8', color: '#0369a1' }}
+            title="실시간 광장 및 1:1 통신 대전"
+          >
+            📡 광장
+          </button>
+          <button
+            onClick={() => {
+              sfx.confirm();
               setShowShare(true);
             }}
             style={topBtnStyle}
             title="인증샷 저장 및 공유"
           >
-            📸 자랑
+            📸
           </button>
           <button
             onClick={() => {
@@ -577,8 +649,9 @@ export default function App() {
               setShowGuide(true);
             }}
             style={topBtnStyle}
+            title="사용 가이드"
           >
-            ? 도움말
+            ?
           </button>
           <button onClick={toggleMute} style={topBtnStyle} title="소리 켜기/끄기">
             {isMuted ? '🔇' : '🔊'}
@@ -590,6 +663,7 @@ export default function App() {
               }
             }}
             style={topBtnStyle}
+            title="초기화"
           >
             🔄
           </button>
@@ -853,7 +927,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* 개발자 전용 숨겨진 테스트 바 (상단 이름표 5연타 + 암호 인증 시에만 표시) */}
+      {/* 개발자 전용 숨겨진 테스트 바 */}
       {devUnlocked && (
         <div
           style={{
@@ -922,6 +996,30 @@ export default function App() {
             닫기
           </button>
         </div>
+      )}
+
+      {/* 통합 통신 광장 모달 */}
+      {showPlaza && (
+        <PlazaModal
+          userId={pet.userId}
+          nickname={pet.nickname}
+          avatarId={pet.plazaAvatarId || 'BABY_MARU'}
+          petCoins={pet.coins}
+          onUpdateProfile={(newNick, newAvatar) => {
+            setPet((p) => ({ ...p, nickname: newNick, plazaAvatarId: newAvatar }));
+          }}
+          onSendGiftCoin={(cost) => {
+            setPet((p) => ({ ...p, coins: Math.max(0, (p.coins || 0) - cost) }));
+          }}
+          onWinBattleCoin={(reward) => {
+            sfx.win();
+            setPet((p) => ({ ...p, coins: (p.coins || 0) + reward }));
+          }}
+          onClose={() => {
+            sfx.beep();
+            setShowPlaza(false);
+          }}
+        />
       )}
 
       {/* 인증샷 카드 모달 */}
@@ -1011,7 +1109,7 @@ const topBtnStyle = {
   color: '#0f172a',
   fontSize: '11px',
   fontWeight: '800',
-  padding: '5px 8px',
+  padding: '5px 7px',
   cursor: 'pointer',
   boxShadow: '0 2px 5px rgba(15, 23, 42, 0.06)',
 };
