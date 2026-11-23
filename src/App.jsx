@@ -20,15 +20,88 @@ const STORAGE_KEY = 'mobile_tamagotchi_pwa_v1';
 const MENU_IDS = ['FEED', 'PLAY', 'CLEAN', 'SHOP', 'STATUS', 'DEX'];
 const DEV_PASSCODE = '8440';
 
+// 1) FOOD_MENU 상수 교체 (약 22번째 줄)
 const FOOD_MENU = [
-  // 1페이지: 식사류 (효과 비례: 무료 -> 7코인 -> 9코인)
-  { id: 'RICE', category: 'MEAL', name: '🍙 주먹밥', price: 0, hunger: 20, happiness: 0, energy: 15, clean: 0, biome: 'land', stat: 1 },
-  { id: 'SUSHI', category: 'MEAL', name: '🍣 초밥', price: 7, hunger: 25, happiness: 10, energy: 20, clean: 0, biome: 'water', stat: 2 },
-  { id: 'RAMEN', category: 'MEAL', name: '🍜 라멘', price: 9, hunger: 35, happiness: 5, energy: 25, clean: 0, biome: 'land', stat: 2 },
-  // 2페이지: 간식류 (효과 비례: 3코인 -> 5코인 -> 7코인)
-  { id: 'CAKE', category: 'SNACK', name: '🍰 케이크', price: 3, hunger: 10, happiness: 20, energy: 5, clean: 0, biome: 'sky', stat: 1 },
-  { id: 'MILK', category: 'SNACK', name: '🥛 우유', price: 5, hunger: 15, happiness: 8, energy: 15, clean: 10, biome: 'water', stat: 1 },
-  { id: 'PARFAIT', category: 'SNACK', name: '🍨 파르페', price: 7, hunger: 12, happiness: 25, energy: 10, clean: 0, biome: 'sky', stat: 2 },
+  // 1페이지: 식사류
+  {
+    id: 'RICE',
+    category: 'MEAL',
+    name: '🍙 주먹밥',
+    price: 0,
+    desc: '포만+20 체력+15 대지+1',
+    hunger: 20,
+    happiness: 0,
+    energy: 15,
+    clean: 0,
+    biome: 'land',
+    stat: 1,
+  },
+  {
+    id: 'SUSHI',
+    category: 'MEAL',
+    name: '🍣 초밥',
+    price: 7,
+    desc: '포만+25 행복+10 체력+20 바다+2',
+    hunger: 25,
+    happiness: 10,
+    energy: 20,
+    clean: 0,
+    biome: 'water',
+    stat: 2,
+  },
+  {
+    id: 'RAMEN',
+    category: 'MEAL',
+    name: '🍜 라멘',
+    price: 9,
+    desc: '포만+35 행복+5 체력+25 대지+2',
+    hunger: 35,
+    happiness: 5,
+    energy: 25,
+    clean: 0,
+    biome: 'land',
+    stat: 2,
+  },
+  // 2페이지: 간식류
+  {
+    id: 'CAKE',
+    category: 'SNACK',
+    name: '🍰 케이크',
+    price: 3,
+    desc: '행복+20 포만+10 체력+5 하늘+1',
+    hunger: 10,
+    happiness: 20,
+    energy: 5,
+    clean: 0,
+    biome: 'sky',
+    stat: 1,
+  },
+  {
+    id: 'MILK',
+    category: 'SNACK',
+    name: '🥛 우유',
+    price: 5,
+    desc: '포만+15 체력+15 청결+10 바다+1',
+    hunger: 15,
+    happiness: 8,
+    energy: 15,
+    clean: 10,
+    biome: 'water',
+    stat: 1,
+  },
+  {
+    id: 'PARFAIT',
+    category: 'SNACK',
+    name: '🍨 파르페',
+    price: 7,
+    desc: '행복+25 포만+12 체력+10 하늘+2',
+    hunger: 12,
+    happiness: 25,
+    energy: 10,
+    clean: 0,
+    biome: 'sky',
+    stat: 2,
+  },
 ];
 
 const getTodayStr = () => new Date().toISOString().slice(0, 10);
@@ -933,6 +1006,7 @@ export default function App() {
               executeMenuAction(MENU_IDS[idx]);
             }}
           >
+            // 2) LCD FOOD 화면 렌더링 블록 교체 (약 640번째 줄)
             {lcdScreen === 'FOOD' && (
               <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '2px', color: '#0f172a' }}>
                 <div style={{ display: 'flex', gap: '2px', width: '100%' }}>
@@ -944,7 +1018,8 @@ export default function App() {
                       color: foodPage === 0 ? '#f8fafc' : '#0f172a',
                       border: '1px solid #1e293b',
                       borderRadius: '3px',
-                      fontSize: '8px',
+                      fontSize: '7.5px',
+                      fontWeight: '800',
                       padding: '1px 0',
                       cursor: 'pointer',
                     }}
@@ -959,7 +1034,8 @@ export default function App() {
                       color: foodPage === 1 ? '#f8fafc' : '#0f172a',
                       border: '1px solid #1e293b',
                       borderRadius: '3px',
-                      fontSize: '8px',
+                      fontSize: '7.5px',
+                      fontWeight: '800',
                       padding: '1px 0',
                       cursor: 'pointer',
                     }}
@@ -974,16 +1050,30 @@ export default function App() {
                     onClick={() => feedPet(item)}
                     style={{
                       ...lcdBtnStyle,
-                      padding: '2px 4px',
-                      fontSize: '8px',
+                      padding: '1.5px 4px',
                       display: 'flex',
-                      justifyContent: 'space-between',
+                      flexDirection: 'column',
+                      alignItems: 'stretch',
+                      gap: '0.5px',
+                      textAlign: 'left',
                     }}
                   >
-                    <span>{item.name}</span>
-                    <span style={{ opacity: 0.85, fontWeight: '800' }}>
-                      {item.price === 0 ? '무료' : `${item.price}🪙`}
-                    </span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '8px', fontWeight: '900' }}>
+                      <span>{item.name}</span>
+                      <span
+                        style={{
+                          background: item.price === 0 ? 'rgba(22, 163, 74, 0.2)' : 'rgba(15, 23, 42, 0.12)',
+                          padding: '0 3px',
+                          borderRadius: '2px',
+                          fontSize: '7.5px',
+                        }}
+                      >
+                        {item.price === 0 ? '무료' : `${item.price}🪙`}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '6.6px', fontWeight: '700', color: '#1e293b', letterSpacing: '-0.3px', whiteSpace: 'nowrap' }}>
+                      {item.desc}
+                    </div>
                   </button>
                 ))}
               </div>
