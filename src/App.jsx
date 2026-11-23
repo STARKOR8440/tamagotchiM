@@ -16,8 +16,12 @@ import {
 } from './evolutionTree';
 import { sfx } from './sound';
 
-const STORAGE_KEY = 'mobile_tamagotchi_pwa_v1';
+// 테스터 데이터 초기화를 위해 스토리지 키를 v2로 업데이트 (구버전 v1 자동 삭제)
+const STORAGE_KEY = 'mobile_tamagotchi_pwa_v2';
+const LEGACY_STORAGE_KEYS = ['mobile_tamagotchi_pwa_v1'];
+
 const MENU_IDS = ['FEED', 'PLAY', 'CLEAN', 'SHOP', 'STATUS', 'DEX'];
+// 아래 비밀번호를 원하시는 새 코드로 변경하세요
 const DEV_PASSCODE = '1128';
 
 const FOOD_MENU = [
@@ -133,8 +137,21 @@ const INITIAL_STATE = {
 
 export default function App() {
   const [pet, setPet] = useState(() => {
+    // 구버전 세이브 데이터 정리 (치트로 해금한 기존 테스터 데이터 초기화)
+    LEGACY_STORAGE_KEYS.forEach((oldKey) => {
+      if (localStorage.getItem(oldKey)) {
+        localStorage.removeItem(oldKey);
+      }
+    });
+
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return INITIAL_STATE;
+    if (!saved) {
+      return {
+        ...INITIAL_STATE,
+        userId: createUserId(),
+        snackDate: getTodayStr(),
+      };
+    }
 
     const parsed = JSON.parse(saved);
     const elapsed = Math.max(0, Math.floor((Date.now() - parsed.lastUpdated) / 1000));
@@ -885,7 +902,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* 2행: 실시간 광장 네온 LED 전광판 (왼쪽 -> 오른쪽 스크롤, 3회 후 리셋) */}
+        {/* 2행: 실시간 광장 네온 LED 전광판 */}
         <div
           onClick={() => {
             sfx.beep();
@@ -911,7 +928,6 @@ export default function App() {
             boxSizing: 'border-box',
           }}
         >
-          {/* 좌측 LIVE / NEW 네온 뱃지 */}
           <div
             style={{
               background: tickerHighlight ? '#f59e0b' : '#0284c7',
@@ -932,7 +948,6 @@ export default function App() {
             {tickerHighlight ? 'NEW!' : 'LIVE'}
           </div>
 
-          {/* 우측 트랙 */}
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
             {tickerActive && tickerText ? (
               <div
@@ -1010,7 +1025,7 @@ export default function App() {
               executeMenuAction(MENU_IDS[idx]);
             }}
           >
-            {/* LCD 식사 및 간식 화면 (실시간 소화 카운트다운 + 코인 부족 흐림 처리) */}
+            {/* LCD 식사 및 간식 화면 */}
             {lcdScreen === 'FOOD' && (
               <div
                 style={{
@@ -1025,7 +1040,6 @@ export default function App() {
                   overflow: 'hidden',
                 }}
               >
-                {/* 상단 식사/간식 탭 */}
                 <div style={{ display: 'flex', gap: '2px', width: '100%', flexShrink: 0 }}>
                   <button
                     onClick={() => { sfx.beep(); setFoodPage(0); }}
@@ -1063,7 +1077,6 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* 3개 메뉴 리스트 */}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '1.5px' }}>
                   {visibleFoods.map((item) => {
                     const canAfford = (pet.coins || 0) >= (item.price || 0);
@@ -1363,7 +1376,6 @@ export default function App() {
                 <StatGauge label="행복" value={pet.happiness} />
                 <StatGauge label="체력" value={pet.energy ?? 100} />
 
-                {/* 하늘 · 대지 · 바다 3대 속성 스탯 표시 바 */}
                 <div
                   style={{
                     display: 'grid',
