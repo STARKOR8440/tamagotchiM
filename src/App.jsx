@@ -21,12 +21,14 @@ const MENU_IDS = ['FEED', 'PLAY', 'CLEAN', 'SHOP', 'STATUS', 'DEX'];
 const DEV_PASSCODE = '8440';
 
 const FOOD_MENU = [
-  { id: 'RICE', category: 'MEAL', name: '🍙 주먹밥', hunger: 20, happiness: 0, energy: 15, clean: 0, biome: 'land', stat: 1 },
-  { id: 'RAMEN', category: 'MEAL', name: '🍜 라멘', hunger: 35, happiness: 5, energy: 25, clean: 0, biome: 'land', stat: 2 },
-  { id: 'SUSHI', category: 'MEAL', name: '🍣 초밥', hunger: 25, happiness: 10, energy: 20, clean: 0, biome: 'water', stat: 2 },
-  { id: 'CAKE', category: 'SNACK', name: '🍰 케이크', hunger: 10, happiness: 20, energy: 5, clean: 0, biome: 'sky', stat: 1 },
-  { id: 'PARFAIT', category: 'SNACK', name: '🍨 파르페', hunger: 12, happiness: 25, energy: 10, clean: 0, biome: 'sky', stat: 2 },
-  { id: 'MILK', category: 'SNACK', name: '🥛 우유', hunger: 15, happiness: 8, energy: 15, clean: 10, biome: 'water', stat: 1 },
+  // 1페이지: 식사류 (효과 비례: 무료 -> 7코인 -> 9코인)
+  { id: 'RICE', category: 'MEAL', name: '🍙 주먹밥', price: 0, hunger: 20, happiness: 0, energy: 15, clean: 0, biome: 'land', stat: 1 },
+  { id: 'SUSHI', category: 'MEAL', name: '🍣 초밥', price: 7, hunger: 25, happiness: 10, energy: 20, clean: 0, biome: 'water', stat: 2 },
+  { id: 'RAMEN', category: 'MEAL', name: '🍜 라멘', price: 9, hunger: 35, happiness: 5, energy: 25, clean: 0, biome: 'land', stat: 2 },
+  // 2페이지: 간식류 (효과 비례: 3코인 -> 5코인 -> 7코인)
+  { id: 'CAKE', category: 'SNACK', name: '🍰 케이크', price: 3, hunger: 10, happiness: 20, energy: 5, clean: 0, biome: 'sky', stat: 1 },
+  { id: 'MILK', category: 'SNACK', name: '🥛 우유', price: 5, hunger: 15, happiness: 8, energy: 15, clean: 10, biome: 'water', stat: 1 },
+  { id: 'PARFAIT', category: 'SNACK', name: '🍨 파르페', price: 7, hunger: 12, happiness: 25, energy: 10, clean: 0, biome: 'sky', stat: 2 },
 ];
 
 const getTodayStr = () => new Date().toISOString().slice(0, 10);
@@ -99,8 +101,8 @@ export default function App() {
   const [actionState, setActionState] = useState('IDLE');
   const [isMuted, setIsMuted] = useState(false);
 
-  // 상단 네온 전광판 상태 (3회 스크롤 후 리셋 & 새 메시지 강조)
-  const [tickerMessages, setTickerMessages] = useState([]);
+  // 상단 네온 전광판 상태 (방금 올라온 최신 메시지 1개만 단독 표시)
+  const [tickerText, setTickerText] = useState('');
   const [tickerActive, setTickerActive] = useState(false);
   const [tickerHighlight, setTickerHighlight] = useState(false);
   const [tickerRunId, setTickerRunId] = useState(0);
@@ -118,9 +120,9 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...pet, lastUpdated: Date.now() }));
   }, [pet]);
 
-  // 새 메시지 감지 시 전광판 3회 스크롤 가동 & 5초간 네온 강조
-  const triggerNewTickerBatch = (formattedList) => {
-    setTickerMessages(formattedList);
+  // 새 메시지 1개 감지 시 전광판 강제 리셋 및 3회 스크롤 가동 & 6초간 네온 강조
+  const triggerSingleTicker = (singleMessage) => {
+    setTickerText(singleMessage);
     setTickerActive(true);
     setTickerHighlight(true);
     setTickerRunId((id) => id + 1);
@@ -128,16 +130,16 @@ export default function App() {
     if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
     highlightTimerRef.current = setTimeout(() => {
       setTickerHighlight(false);
-    }, 5000);
+    }, 6000);
   };
 
-  // 광장 최신 채팅 내역 폴링 (새 메시지 키가 생겼을 때만 전광판 가동)
+  // 광장 가장 최신 메시지 1개만 폴링
   useEffect(() => {
     if (!isFirebaseConfigured()) return;
 
-    const fetchTicker = async () => {
+    const fetchLatestTicker = async () => {
       try {
-        const res = await fetch(`${FIREBASE_DB_URL}/plaza/messages.json?orderBy="$key"&limitToLast=5`);
+        const res = await fetch(`${FIREBASE_DB_URL}/plaza/messages.json?orderBy="$key"&limitToLast=1`);
         const data = await res.json();
         if (!data) return;
 
@@ -146,19 +148,20 @@ export default function App() {
         if (!latestKey || latestKey === lastMsgKeyRef.current) return;
 
         lastMsgKeyRef.current = latestKey;
-        const formatted = Object.values(data).map((m) =>
-          m.isSystem ? m.text : `[${m.sender}] ${m.text}`
-        );
-        if (formatted.length > 0) {
-          triggerNewTickerBatch(formatted);
+        const latestMsg = data[latestKey];
+        if (latestMsg) {
+          const text = latestMsg.isSystem
+            ? latestMsg.text
+            : `[${latestMsg.sender}] ${latestMsg.text}`;
+          triggerSingleTicker(text);
         }
       } catch {
         // 네트워크 일시 오류 무시
       }
     };
 
-    fetchTicker();
-    const tickerTimer = setInterval(fetchTicker, 3500);
+    fetchLatestTicker();
+    const tickerTimer = setInterval(fetchLatestTicker, 3000);
     return () => clearInterval(tickerTimer);
   }, [showPlaza]);
 
@@ -389,10 +392,19 @@ export default function App() {
     triggerReaction(isHardReset ? '처음부터 새 알! 🥚' : '독립 완료! 2세대 알 도착 🥚');
   };
 
+  // 2) feedPet 함수 교체 (약 303번째 줄)
   const feedPet = (foodItem) => {
     const now = Date.now();
     const today = getTodayStr();
     const currentSnacks = pet.snackDate === today ? pet.snacksToday : 0;
+    const cost = foodItem.price || 0;
+
+    if ((pet.coins || 0) < cost) {
+      sfx.beep();
+      triggerReaction(`코인 부족! (${cost}🪙 필요) 💸`);
+      setLcdScreen('PET');
+      return;
+    }
 
     if (foodItem.category === 'MEAL') {
       if (pet.hunger >= 95) {
@@ -415,6 +427,7 @@ export default function App() {
       triggerAction('EAT');
       setPet((p) => ({
         ...p,
+        coins: (p.coins || 0) - cost,
         hunger: Math.min(100, p.hunger + foodItem.hunger),
         happiness: Math.min(100, p.happiness + foodItem.happiness),
         energy: Math.min(100, (p.energy ?? 100) + foodItem.energy),
@@ -424,7 +437,7 @@ export default function App() {
           [foodItem.biome]: (p.careStats?.[foodItem.biome] || 1) + foodItem.stat,
         },
       }));
-      triggerReaction(`${foodItem.name} 냠! 체력+${foodItem.energy}`);
+      triggerReaction(`${foodItem.name} 냠! ${cost > 0 ? `(-${cost}🪙)` : '(무료)'}`);
     } else {
       if (currentSnacks >= 6) {
         sfx.beep();
@@ -436,6 +449,7 @@ export default function App() {
       triggerAction('EAT');
       setPet((p) => ({
         ...p,
+        coins: (p.coins || 0) - cost,
         hunger: Math.min(100, p.hunger + foodItem.hunger),
         happiness: Math.min(100, p.happiness + foodItem.happiness),
         energy: Math.min(100, (p.energy ?? 100) + foodItem.energy),
@@ -447,7 +461,7 @@ export default function App() {
           [foodItem.biome]: (p.careStats?.[foodItem.biome] || 1) + foodItem.stat,
         },
       }));
-      triggerReaction(`${foodItem.name} 냠! (${currentSnacks + 1}/6)`);
+      triggerReaction(`${foodItem.name} 냠! -${cost}🪙 (${currentSnacks + 1}/6)`);
     }
     setLcdScreen('PET');
   };
@@ -664,9 +678,8 @@ export default function App() {
   );
   const todaySnacksUsed = pet.snackDate === getTodayStr() ? pet.snacksToday : 0;
 
-  // 전광판 텍스트 및 1회 스크롤 시간 계산 (3회 반복 후 자동 리셋)
-  const tickerText = tickerMessages.join('   ★   ');
-  const tickerDuration = Math.max(9, Math.round(tickerText.length * 0.24));
+  // 단일 최신 메시지 길이에 맞춘 1회 롤링 시간 (최소 5.5초)
+  const tickerDuration = Math.max(5.5, Math.round(tickerText.length * 0.22));
 
   return (
     <div
@@ -683,16 +696,17 @@ export default function App() {
         background: 'linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%)',
       }}
     >
-      {/* 네온 LED 전광판 스크롤 & 새 메시지 반짝임 애니메이션 */}
+      {/* 네온 LED 전광판: 왼쪽 끝에서 즉시 시작해 3회 롤링 후 자동 리셋 */}
       <style>{`
-        @keyframes neonMarqueeOnce {
-          0% { transform: translateX(0%); }
+        @keyframes neonMarqueeImmediate {
+          0% { transform: translateX(8%); }
+          12% { transform: translateX(8%); }
           100% { transform: translateX(-100%); }
         }
         @keyframes neonFlashPulse {
           0%, 100% {
             border-color: #facc15;
-            box-shadow: 0 0 14px rgba(250, 204, 21, 0.85), inset 0 0 10px rgba(250, 204, 21, 0.45);
+            box-shadow: 0 0 14px rgba(250, 204, 21, 0.9), inset 0 0 10px rgba(250, 204, 21, 0.45);
           }
           50% {
             border-color: #f43f5e;
@@ -794,7 +808,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* 2행: 실시간 광장 네온 LED 전광판 (새 메시지 도착 시 3회 스크롤 후 대기 상태 리셋) */}
+        {/* 2행: 실시간 광장 네온 LED 전광판 (최신 메시지 1개만 단독 노출 + 3회 스크롤 후 대기 리셋) */}
         <div
           onClick={() => {
             sfx.beep();
@@ -809,9 +823,9 @@ export default function App() {
             border: tickerHighlight ? '1.5px solid #facc15' : '1.5px solid #38bdf8',
             borderRadius: '12px',
             boxShadow: tickerHighlight
-              ? '0 0 14px rgba(250, 204, 21, 0.85)'
+              ? '0 0 14px rgba(250, 204, 21, 0.9)'
               : '0 0 10px rgba(56, 189, 248, 0.3), inset 0 0 8px rgba(14, 165, 233, 0.22)',
-            animation: tickerHighlight ? 'neonFlashPulse 0.9s ease-in-out infinite' : 'none',
+            animation: tickerHighlight ? 'neonFlashPulse 0.85s ease-in-out infinite' : 'none',
             display: 'flex',
             alignItems: 'center',
             overflow: 'hidden',
@@ -841,7 +855,7 @@ export default function App() {
             {tickerHighlight ? 'NEW!' : 'LIVE'}
           </div>
 
-          {/* 우측 트랙: 새 메시지 수신 시 3회만 스크롤 후 자동 리셋 */}
+          {/* 우측 트랙: 방금 올라온 최신 메시지 1개만 표시되며 3회 스크롤 후 자동 리셋 */}
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
             {tickerActive && tickerText ? (
               <div
@@ -853,8 +867,8 @@ export default function App() {
                 style={{
                   display: 'inline-block',
                   whiteSpace: 'nowrap',
-                  paddingLeft: '100%',
-                  animation: `neonMarqueeOnce ${tickerDuration}s linear 3`,
+                  paddingRight: '40px',
+                  animation: `neonMarqueeImmediate ${tickerDuration}s linear 3`,
                 }}
               >
                 <span
@@ -967,8 +981,8 @@ export default function App() {
                     }}
                   >
                     <span>{item.name}</span>
-                    <span style={{ opacity: 0.8 }}>
-                      {item.category === 'MEAL' ? `포만+${item.hunger}` : `행복+${item.happiness}`}
+                    <span style={{ opacity: 0.85, fontWeight: '800' }}>
+                      {item.price === 0 ? '무료' : `${item.price}🪙`}
                     </span>
                   </button>
                 ))}

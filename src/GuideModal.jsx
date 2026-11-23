@@ -137,12 +137,20 @@ export default function GuideModal({ onClose }) {
                 </ul>
               </SectionCard>
 
-              <SectionCard title="🍙 식사(3종) & 🍰 간식(3종) 밸런스">
+              <SectionCard title="🍙 식사(3종) & 🍰 간식(3종) 메뉴·가격표">
                 <ul style={listStyle}>
-                  <li><strong>식사류 (소화 쿨타임 3분 / 포만 95 미만 섭취):</strong><br />
-                    🍙 주먹밥(포만+20, 대지+1) · 🍜 라멘(포만+35, 대지+2) · 🍣 초밥(포만+25, 바다+2)</li>
-                  <li><strong>간식류 (하루 최대 6회 / 쿨타임 없음):</strong><br />
-                    🍰 케이크(행복+20, 하늘+1) · 🍨 파르페(행복+25, 하늘+2) · 🥛 우유(청결+10, 바다+1)</li>
+                  <li>
+                    <strong>식사류 (소화 쿨타임 3분 / 포만 95 미만 섭취):</strong>
+                    <br />• <strong>🍙 주먹밥 (무료):</strong> 포만+20, 체력+15, 대지+1
+                    <br />• <strong>🍣 초밥 (7🪙):</strong> 포만+25, 행복+10, 체력+20, 바다+2
+                    <br />• <strong>🍜 라멘 (9🪙):</strong> 포만+35, 행복+5, 체력+25, 대지+2
+                  </li>
+                  <li>
+                    <strong>간식류 (하루 최대 6회 / 쿨타임 없음):</strong>
+                    <br />• <strong>🍰 케이크 (3🪙):</strong> 포만+10, 행복+20, 체력+5, 하늘+1
+                    <br />• <strong>🥛 우유 (5🪙):</strong> 포만+15, 행복+8, 체력+15, 청결+10, 바다+1
+                    <br />• <strong>🍨 파르페 (7🪙):</strong> 포만+12, 행복+25, 체력+10, 하늘+2
+                  </li>
                 </ul>
               </SectionCard>
 
