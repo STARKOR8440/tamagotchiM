@@ -856,7 +856,7 @@ export default function PlazaModal({
                     maxLength={4}
                     value={roomCode}
                     onChange={(e) => setRoomCode(e.target.value.replace(/\D/g, ''))}
-                    placeholder="8440"
+                    placeholder="0000"
                     style={{
                       flex: 1,
                       minWidth: 0,
