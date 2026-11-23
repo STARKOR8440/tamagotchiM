@@ -20,6 +20,17 @@ const STORAGE_KEY = 'mobile_tamagotchi_pwa_v1';
 const MENU_IDS = ['FEED', 'PLAY', 'CLEAN', 'SHOP', 'STATUS', 'DEX'];
 const DEV_PASSCODE = '8440';
 
+const FOOD_MENU = [
+  // 1페이지: 식사류 (포만감 95 미만일 때 섭취 가능, 섭취 후 3분 소화 쿨타임)
+  { id: 'RICE', category: 'MEAL', name: '🍙 주먹밥', hunger: 20, happiness: 0, energy: 15, clean: 0, biome: 'land', stat: 1 },
+  { id: 'RAMEN', category: 'MEAL', name: '🍜 라멘', hunger: 35, happiness: 5, energy: 25, clean: 0, biome: 'land', stat: 2 },
+  { id: 'SUSHI', category: 'MEAL', name: '🍣 초밥', hunger: 25, happiness: 10, energy: 20, clean: 0, biome: 'water', stat: 2 },
+  // 2페이지: 간식류 (하루 최대 6회 제한, 쿨타임 없이 즉시 섭취 가능)
+  { id: 'CAKE', category: 'SNACK', name: '🍰 케이크', hunger: 10, happiness: 20, energy: 5, clean: 0, biome: 'sky', stat: 1 },
+  { id: 'PARFAIT', category: 'SNACK', name: '🍨 파르페', hunger: 12, happiness: 25, energy: 10, clean: 0, biome: 'sky', stat: 2 },
+  { id: 'MILK', category: 'SNACK', name: '🥛 우유', hunger: 15, happiness: 8, energy: 15, clean: 10, biome: 'water', stat: 1 },
+];
+
 const getTodayStr = () => new Date().toISOString().slice(0, 10);
 const createUserId = () => 'u_' + Math.random().toString(36).slice(2, 10);
 
@@ -56,7 +67,8 @@ export default function App() {
     const parsed = JSON.parse(saved);
     const elapsed = Math.max(0, Math.floor((Date.now() - parsed.lastUpdated) / 1000));
     const decay = Math.floor(elapsed / 90);
-    const energyGain = Math.floor(elapsed / 30);
+    // 오프라인 체력 회복도 15초당 +1로 상향
+    const energyGain = Math.floor(elapsed / 15);
 
     return {
       ...INITIAL_STATE,
@@ -78,6 +90,7 @@ export default function App() {
   });
 
   const [lcdScreen, setLcdScreen] = useState('PET');
+  const [foodPage, setFoodPage] = useState(0); // 0: 식사(3종), 1: 간식(3종)
   const [shopTab, setShopTab] = useState('SKIN');
   const [skinPage, setSkinPage] = useState(0);
   const [selectedMenuIdx, setSelectedMenuIdx] = useState(0);
@@ -100,7 +113,6 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...pet, lastUpdated: Date.now() }));
   }, [pet]);
 
-  // 친구가 보낸 선물 실시간 수신 체크 (5초 간격)
   useEffect(() => {
     if (!isFirebaseConfigured() || !pet.userId) return;
 
@@ -110,7 +122,6 @@ export default function App() {
         const gifts = await res.json();
         if (!gifts) return;
 
-        // 수신 후 서버 큐 비우기
         await fetch(`${FIREBASE_DB_URL}/plaza/gifts/${pet.userId}.json`, { method: 'DELETE' });
 
         const list = Object.values(gifts);
@@ -239,7 +250,8 @@ export default function App() {
           lastHintAlertRef.current = Date.now();
         }
 
-        const nextEnergy = nextAge % 30 === 0 ? Math.min(100, (prev.energy ?? 100) + 1) : (prev.energy ?? 100);
+        // 체력 자연 회복: 15초당 +1 (기존 30초 -> 15초로 2배 향상)
+        const nextEnergy = nextAge % 15 === 0 ? Math.min(100, (prev.energy ?? 100) + 1) : (prev.energy ?? 100);
 
         if (nextAge % 90 === 0 && currentSpec.stage !== 'EGG') {
           const nextClean = Math.max(0, prev.cleanliness - 1);
@@ -328,33 +340,48 @@ export default function App() {
     triggerReaction(isHardReset ? '처음부터 새 알! 🥚' : '독립 완료! 2세대 알 도착 🥚');
   };
 
-  const feedPet = (foodType) => {
+  // 식사(3종) 및 간식(3종) 통합 처리
+  const feedPet = (foodItem) => {
     const now = Date.now();
     const today = getTodayStr();
     const currentSnacks = pet.snackDate === today ? pet.snacksToday : 0;
 
-    if (foodType === 'RICE') {
+    if (foodItem.category === 'MEAL') {
+      if (pet.hunger >= 95) {
+        sfx.beep();
+        triggerReaction('배가 꽉 찼어! (포만 95↑) 🙅');
+        setLcdScreen('PET');
+        return;
+      }
       if (now < (pet.digestUntil || 0)) {
-        const remainMin = Math.ceil((pet.digestUntil - now) / 60000);
+        const remainSec = Math.ceil((pet.digestUntil - now) / 1000);
+        const min = Math.floor(remainSec / 60);
+        const sec = remainSec % 60;
         sfx.beep();
-        triggerReaction(`배불러! ${remainMin}분 뒤 소화됨 🙅`);
+        triggerReaction(`소화 중! ${min > 0 ? `${min}분 ` : ''}${sec}초 뒤 가능 ⏳`);
         setLcdScreen('PET');
         return;
       }
+
       sfx.eat();
       triggerAction('EAT');
       setPet((p) => ({
         ...p,
-        hunger: Math.min(100, p.hunger + 25),
-        energy: Math.min(100, (p.energy ?? 100) + 15),
-        digestUntil: now + 15 * 60 * 1000,
-        careStats: { ...p.careStats, land: (p.careStats?.land || 1) + 1 },
+        hunger: Math.min(100, p.hunger + foodItem.hunger),
+        happiness: Math.min(100, p.happiness + foodItem.happiness),
+        energy: Math.min(100, (p.energy ?? 100) + foodItem.energy),
+        // 소화 쿨타임을 기존 15분에서 3분으로 단축
+        digestUntil: now + 3 * 60 * 1000,
+        careStats: {
+          ...p.careStats,
+          [foodItem.biome]: (p.careStats?.[foodItem.biome] || 1) + foodItem.stat,
+        },
       }));
-      triggerReaction('주먹밥 냠! 체력+15 🍙');
+      triggerReaction(`${foodItem.name} 냠! 체력+${foodItem.energy}`);
     } else {
-      if (currentSnacks >= 3) {
+      if (currentSnacks >= 6) {
         sfx.beep();
-        triggerReaction('오늘 간식은 끝! 충치 조심 🦷');
+        triggerReaction('오늘 간식(6/6) 끝! 내일 또 먹자 🦷');
         setLcdScreen('PET');
         return;
       }
@@ -362,13 +389,18 @@ export default function App() {
       triggerAction('EAT');
       setPet((p) => ({
         ...p,
-        hunger: Math.min(100, p.hunger + 10),
-        happiness: Math.min(100, p.happiness + 15),
+        hunger: Math.min(100, p.hunger + foodItem.hunger),
+        happiness: Math.min(100, p.happiness + foodItem.happiness),
+        energy: Math.min(100, (p.energy ?? 100) + foodItem.energy),
+        cleanliness: Math.min(100, p.cleanliness + foodItem.clean),
         snacksToday: currentSnacks + 1,
         snackDate: today,
-        careStats: { ...p.careStats, sky: (p.careStats?.sky || 1) + 1 },
+        careStats: {
+          ...p.careStats,
+          [foodItem.biome]: (p.careStats?.[foodItem.biome] || 1) + foodItem.stat,
+        },
       }));
-      triggerReaction(`케이크 냠! (${currentSnacks + 1}/3) 🍰`);
+      triggerReaction(`${foodItem.name} 냠! (${currentSnacks + 1}/6)`);
     }
     setLcdScreen('PET');
   };
@@ -506,9 +538,10 @@ export default function App() {
     if (type === 'FEED') {
       setLcdScreen('FOOD');
     } else if (type === 'PLAY') {
-      if ((pet.energy ?? 100) < 20) {
+      // 미니게임 입장 체력 조건을 20 -> 12로 완화
+      if ((pet.energy ?? 100) < 12) {
         sfx.beep();
-        triggerReaction('체력 부족! 밥이나 드링크 필요 ⚡');
+        triggerReaction('체력 부족! 밥이나 간식 필요 ⚡');
         return;
       }
       setLcdScreen('GAME');
@@ -538,6 +571,10 @@ export default function App() {
 
   const handlePressA = () => {
     sfx.beep();
+    if (lcdScreen === 'FOOD') {
+      setFoodPage((prev) => (prev === 0 ? 1 : 0));
+      return;
+    }
     if (lcdScreen === 'SHOP') {
       setShopTab((prev) => (prev === 'SKIN' ? 'ITEM' : 'SKIN'));
       return;
@@ -546,6 +583,11 @@ export default function App() {
   };
 
   const handlePressB = () => {
+    if (lcdScreen === 'FOOD') {
+      sfx.beep();
+      setFoodPage((prev) => (prev === 0 ? 1 : 0));
+      return;
+    }
     if (lcdScreen === 'SHOP') {
       sfx.beep();
       setShopTab((prev) => (prev === 'SKIN' ? 'ITEM' : 'SKIN'));
@@ -570,6 +612,11 @@ export default function App() {
   const totalSkinPages = Math.ceil(availableShopSkins.length / 4);
   const safeSkinPage = skinPage >= totalSkinPages ? 0 : skinPage;
   const pagedSkins = availableShopSkins.slice(safeSkinPage * 4, safeSkinPage * 4 + 4);
+
+  const visibleFoods = FOOD_MENU.filter((f) =>
+    foodPage === 0 ? f.category === 'MEAL' : f.category === 'SNACK'
+  );
+  const todaySnacksUsed = pet.snackDate === getTodayStr() ? pet.snacksToday : 0;
 
   return (
     <div
@@ -702,14 +749,58 @@ export default function App() {
             }}
           >
             {lcdScreen === 'FOOD' && (
-              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '4px', color: '#0f172a' }}>
-                <div style={{ fontSize: '9.5px', textAlign: 'center', fontWeight: 'bold' }}>식사 및 간식</div>
-                <button onClick={() => feedPet('RICE')} style={lcdBtnStyle}>
-                  🍙 주먹밥 (+체력15)
-                </button>
-                <button onClick={() => feedPet('CAKE')} style={lcdBtnStyle}>
-                  🍰 케이크 ({pet.snackDate === getTodayStr() ? pet.snacksToday : 0}/3)
-                </button>
+              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '2px', color: '#0f172a' }}>
+                <div style={{ display: 'flex', gap: '2px', width: '100%' }}>
+                  <button
+                    onClick={() => { sfx.beep(); setFoodPage(0); }}
+                    style={{
+                      flex: 1,
+                      background: foodPage === 0 ? '#1e293b' : 'rgba(15,23,42,0.08)',
+                      color: foodPage === 0 ? '#f8fafc' : '#0f172a',
+                      border: '1px solid #1e293b',
+                      borderRadius: '3px',
+                      fontSize: '8px',
+                      padding: '1px 0',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    식사(3분쿨)
+                  </button>
+                  <button
+                    onClick={() => { sfx.beep(); setFoodPage(1); }}
+                    style={{
+                      flex: 1,
+                      background: foodPage === 1 ? '#1e293b' : 'rgba(15,23,42,0.08)',
+                      color: foodPage === 1 ? '#f8fafc' : '#0f172a',
+                      border: '1px solid #1e293b',
+                      borderRadius: '3px',
+                      fontSize: '8px',
+                      padding: '1px 0',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    간식({todaySnacksUsed}/6)
+                  </button>
+                </div>
+
+                {visibleFoods.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => feedPet(item)}
+                    style={{
+                      ...lcdBtnStyle,
+                      padding: '2px 4px',
+                      fontSize: '8px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <span>{item.name}</span>
+                    <span style={{ opacity: 0.8 }}>
+                      {item.category === 'MEAL' ? `포만+${item.hunger}` : `행복+${item.happiness}`}
+                    </span>
+                  </button>
+                ))}
               </div>
             )}
 
@@ -719,7 +810,8 @@ export default function App() {
                 onFinish={(bonus, msg, customCoins, bonusWins, isWin) => {
                   setPet((p) => ({
                     ...p,
-                    energy: Math.max(0, (p.energy ?? 100) - 20),
+                    // 체력 소모를 기존 -20에서 -12로 완화
+                    energy: Math.max(0, (p.energy ?? 100) - 12),
                     happiness: Math.min(100, p.happiness + bonus),
                     coins: p.coins + customCoins,
                     gameWins: (p.gameWins || 0) + bonusWins,

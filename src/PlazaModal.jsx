@@ -22,25 +22,22 @@ export default function PlazaModal({
   onWinBattleCoin,
   onClose,
 }) {
-  const [tab, setTab] = useState('PLAZA'); // 'PLAZA' | 'BATTLE'
+  const [tab, setTab] = useState('PLAZA');
   const [editingProfile, setEditingProfile] = useState(false);
   const [tempNick, setTempNick] = useState(nickname);
   const [tempAvatar, setTempAvatar] = useState(avatarId);
 
-  // 광장 실시간 데이터
   const [usersMap, setUsersMap] = useState({});
   const [messages, setMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [selectedTarget, setSelectedTarget] = useState(null);
 
-  // 1:1 IR 통신 대전 상태
   const [roomCode, setRoomCode] = useState('');
   const [joinedRoom, setJoinedRoom] = useState('');
   const [roomData, setRoomData] = useState(null);
 
   const chatEndRef = useRef(null);
 
-  // 내 접속 상태(Presence) 등록 및 15초마다 하트비트 갱신
   useEffect(() => {
     const pushPresence = async () => {
       const payload = {
@@ -64,7 +61,7 @@ export default function PlazaModal({
           body: JSON.stringify(payload),
         });
       } catch {
-        // 네트워크 일시 오류 무시
+        // 무시
       }
     };
 
@@ -73,7 +70,6 @@ export default function PlazaModal({
     return () => clearInterval(hb);
   }, [userId, nickname, avatarId]);
 
-  // 광장 유저 & 채팅 폴링 (2.5초 주기)
   useEffect(() => {
     if (!isFirebaseConfigured()) {
       setMessages((prev) =>
@@ -83,7 +79,7 @@ export default function PlazaModal({
               {
                 id: 'sys_1',
                 sender: '안내',
-                text: 'Firebase DB URL을 연결하면 실시간 멀티 광장이 열립니다!',
+                text: '⚠️ src/firebaseConfig.js에 Firebase DB URL을 입력하면 실시간 멀티 통신이 활성화됩니다.',
                 isSystem: true,
               },
             ]
@@ -100,7 +96,6 @@ export default function PlazaModal({
         const uData = (await uRes.json()) || {};
         const mData = (await mRes.json()) || {};
 
-        // 최근 3분 이내 활동 유저만 온라인으로 필터링
         const now = Date.now();
         const activeUsers = {};
         Object.values(uData).forEach((u) => {
@@ -126,7 +121,6 @@ export default function PlazaModal({
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // 1:1 통신 방 폴링
   useEffect(() => {
     if (!joinedRoom || !isFirebaseConfigured()) return;
 
@@ -227,7 +221,6 @@ export default function PlazaModal({
     setSelectedTarget(null);
   };
 
-  // 1:1 통신방 입장
   const handleJoinRoom = async () => {
     const cleanCode = roomCode.trim();
     if (cleanCode.length !== 4) {
@@ -252,7 +245,6 @@ export default function PlazaModal({
       const existing = (await res.json()) || { players: {} };
       const players = existing.players || {};
 
-      // 이전 판 결과가 완료된 방이면 초기화
       const pKeys = Object.keys(players);
       if (pKeys.length >= 2 && !players[userId]) {
         alert('이미 2명이 통신 중인 방입니다. 다른 코드를 입력하세요!');
@@ -320,8 +312,6 @@ export default function PlazaModal({
   };
 
   const onlineList = Object.values(usersMap);
-
-  // 배틀 판정 계산
   const playersArr = roomData?.players ? Object.values(roomData.players) : [];
   const mePlayer = playersArr.find((p) => p.userId === userId);
   const oppPlayer = playersArr.find((p) => p.userId !== userId);
@@ -355,6 +345,7 @@ export default function PlazaModal({
         alignItems: 'center',
         justifyContent: 'center',
         padding: '12px',
+        boxSizing: 'border-box',
       }}
     >
       <div
@@ -373,25 +364,26 @@ export default function PlazaModal({
           flexDirection: 'column',
           gap: '10px',
           color: '#0f172a',
+          overflow: 'hidden',
         }}
       >
         {/* 상단 헤더 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '15px', fontWeight: '900', color: '#0369a1' }}>
+            <span style={{ fontSize: '14.5px', fontWeight: '900', color: '#0369a1' }}>
               📡 다마고치 커넥션 광장
             </span>
             <span
               style={{
-                background: '#dcfce7',
-                color: '#15803d',
-                fontSize: '11px',
+                background: isFirebaseConfigured() ? '#dcfce7' : '#fef3c7',
+                color: isFirebaseConfigured() ? '#15803d' : '#b45309',
+                fontSize: '10.5px',
                 fontWeight: '800',
-                padding: '2px 8px',
+                padding: '2px 7px',
                 borderRadius: '10px',
               }}
             >
-              접속 {onlineList.length}명
+              {isFirebaseConfigured() ? `접속 ${onlineList.length}명` : '로컬모드'}
             </span>
           </div>
           <button
@@ -405,13 +397,14 @@ export default function PlazaModal({
               fontSize: '11.5px',
               fontWeight: '800',
               cursor: 'pointer',
+              flexShrink: 0,
             }}
           >
             ✕ 닫기
           </button>
         </div>
 
-        {/* 내 프로필 바 (닉네임 & 광장 캐릭터 변경) */}
+        {/* 내 프로필 바 */}
         <div
           style={{
             background: '#f0f9ff',
@@ -423,15 +416,17 @@ export default function PlazaModal({
             gap: '8px',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+              <div style={{ width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <div style={{ transform: 'scale(0.36)' }}>
                   <PetSprite speciesId={avatarId} lcdMode={false} />
                 </div>
               </div>
-              <div>
-                <div style={{ fontSize: '12.5px', fontWeight: '900' }}>{nickname}</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '12.5px', fontWeight: '900', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {nickname}
+                </div>
                 <div style={{ fontSize: '10.5px', color: '#0284c7', fontWeight: '700' }}>
                   {SPECIES[avatarId]?.name || '몽글 베이비'}
                 </div>
@@ -450,13 +445,14 @@ export default function PlazaModal({
                 color: '#fff',
                 border: 'none',
                 borderRadius: '10px',
-                padding: '5px 10px',
+                padding: '5px 9px',
                 fontSize: '11px',
                 fontWeight: '800',
                 cursor: 'pointer',
+                flexShrink: 0,
               }}
             >
-              {editingProfile ? '취소' : '✏️ 닉네임·캐릭터 변경'}
+              {editingProfile ? '취소' : '✏️ 프로필'}
             </button>
           </div>
 
@@ -470,7 +466,7 @@ export default function PlazaModal({
                 gap: '6px',
               }}
             >
-              <div style={{ display: 'flex', gap: '6px' }}>
+              <div style={{ display: 'flex', gap: '6px', width: '100%' }}>
                 <input
                   type="text"
                   maxLength={8}
@@ -479,11 +475,13 @@ export default function PlazaModal({
                   placeholder="닉네임 (최대 8자)"
                   style={{
                     flex: 1,
+                    minWidth: 0,
                     padding: '6px 8px',
                     borderRadius: '8px',
                     border: '1.5px solid #38bdf8',
-                    fontSize: '12px',
+                    fontSize: '16px',
                     fontWeight: '700',
+                    boxSizing: 'border-box',
                   }}
                 />
                 <button
@@ -494,9 +492,10 @@ export default function PlazaModal({
                     border: 'none',
                     borderRadius: '8px',
                     padding: '6px 12px',
-                    fontSize: '11.5px',
+                    fontSize: '12px',
                     fontWeight: '800',
                     cursor: 'pointer',
+                    flexShrink: 0,
                   }}
                 >
                   저장
@@ -504,14 +503,14 @@ export default function PlazaModal({
               </div>
 
               <div style={{ fontSize: '10.5px', fontWeight: '800', color: '#475569' }}>
-                광장 아바타 선택 (기존 캐릭터 {AVATAR_CANDIDATES.length}종):
+                광장 캐릭터 선택 ({AVATAR_CANDIDATES.length}종):
               </div>
               <div
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(6, 1fr)',
                   gap: '4px',
-                  maxHeight: '110px',
+                  maxHeight: '105px',
                   overflowY: 'auto',
                   background: '#ffffff',
                   padding: '6px',
@@ -550,7 +549,7 @@ export default function PlazaModal({
           )}
         </div>
 
-        {/* 탭 전환: 광장 & 채팅 / 1:1 IR 적외선 배틀 */}
+        {/* 탭 전환 */}
         <div style={{ display: 'flex', gap: '6px' }}>
           <button
             onClick={() => {
@@ -564,12 +563,12 @@ export default function PlazaModal({
               border: 'none',
               background: tab === 'PLAZA' ? '#0f172a' : '#e2e8f0',
               color: tab === 'PLAZA' ? '#ffffff' : '#334155',
-              fontSize: '12px',
+              fontSize: '11.5px',
               fontWeight: '800',
               cursor: 'pointer',
             }}
           >
-            💬 광장 & 선물 주고받기
+            💬 광장 & 선물
           </button>
           <button
             onClick={() => {
@@ -583,18 +582,17 @@ export default function PlazaModal({
               border: 'none',
               background: tab === 'BATTLE' ? '#0f172a' : '#e2e8f0',
               color: tab === 'BATTLE' ? '#ffffff' : '#334155',
-              fontSize: '12px',
+              fontSize: '11.5px',
               fontWeight: '800',
               cursor: 'pointer',
             }}
           >
-            ⚡ 1:1 IR 통신 대전
+            ⚡ 1:1 IR 대전
           </button>
         </div>
 
         {tab === 'PLAZA' ? (
           <>
-            {/* 접속 중인 친구 캐릭터 광장 필드 */}
             <div
               style={{
                 background: 'linear-gradient(180deg, #dcfce7 0%, #bbf7d0 100%)',
@@ -652,7 +650,6 @@ export default function PlazaModal({
               })}
             </div>
 
-            {/* 친구 선택 시 선물 보내기 패널 */}
             {selectedTarget && (
               <div
                 style={{
@@ -670,24 +667,23 @@ export default function PlazaModal({
                 </div>
                 <div style={{ display: 'flex', gap: '5px' }}>
                   <button onClick={() => handleSendGift(selectedTarget, 'HEART')} style={giftBtnStyle}>
-                    ❤️ 하트 (무료)
+                    ❤️ 하트
                   </button>
                   <button onClick={() => handleSendGift(selectedTarget, 'CAKE')} style={giftBtnStyle}>
-                    🍰 케이크 (무료)
+                    🍰 케이크
                   </button>
                   <button onClick={() => handleSendGift(selectedTarget, 'COIN')} style={giftBtnStyle}>
-                    🪙 20코인 보내기
+                    🪙 20코인
                   </button>
                 </div>
               </div>
             )}
 
-            {/* 실시간 한줄 채팅창 */}
             <div
               style={{
                 flex: 1,
-                minHeight: '130px',
-                maxHeight: '180px',
+                minHeight: '125px',
+                maxHeight: '175px',
                 overflowY: 'auto',
                 background: '#f8fafc',
                 border: '1.5px solid #e2e8f0',
@@ -723,8 +719,7 @@ export default function PlazaModal({
               <div ref={chatEndRef} />
             </div>
 
-            {/* 한줄 채팅 입력 폼 */}
-            <form onSubmit={handleChatSubmit} style={{ display: 'flex', gap: '6px' }}>
+            <form onSubmit={handleChatSubmit} style={{ display: 'flex', gap: '6px', width: '100%' }}>
               <input
                 type="text"
                 maxLength={50}
@@ -733,10 +728,12 @@ export default function PlazaModal({
                 placeholder="광장에 한줄 인사 남기기..."
                 style={{
                   flex: 1,
+                  minWidth: 0,
                   padding: '8px 10px',
                   borderRadius: '10px',
                   border: '1.5px solid #cbd5e1',
-                  fontSize: '12px',
+                  fontSize: '16px',
+                  boxSizing: 'border-box',
                 }}
               />
               <button
@@ -747,9 +744,10 @@ export default function PlazaModal({
                   border: 'none',
                   borderRadius: '10px',
                   padding: '0 14px',
-                  fontSize: '12px',
+                  fontSize: '12.5px',
                   fontWeight: '800',
                   cursor: 'pointer',
+                  flexShrink: 0,
                 }}
               >
                 전송
@@ -757,56 +755,78 @@ export default function PlazaModal({
             </form>
           </>
         ) : (
-          /* 1:1 IR 적외선 통신 대전 화면 */
+          /* 1:1 IR 적외선 통신 대전 화면 (iOS Safari 레이아웃 깨짐 완벽 보완) */
           <div
             style={{
               background: '#f8fafc',
               border: '1.5px solid #cbd5e1',
               borderRadius: '16px',
-              padding: '12px',
+              padding: '14px 12px',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               gap: '10px',
+              width: '100%',
+              boxSizing: 'border-box',
             }}
           >
             {!joinedRoom ? (
               <>
-                <div style={{ fontSize: '13px', fontWeight: '900', color: '#0f172a' }}>
+                <div style={{ fontSize: '13px', fontWeight: '900', color: '#0f172a', textAlign: 'center' }}>
                   📡 4자리 초대코드로 친구와 연결!
                 </div>
-                <div style={{ fontSize: '11px', color: '#475569', textAlign: 'center' }}>
+                <div style={{ fontSize: '11px', color: '#475569', textAlign: 'center', lineHeight: 1.4 }}>
                   같은 4자리 숫자를 입력하면 두 캐릭터가 만나 실시간 가위바위보 대결을 펼칩니다.
                 </div>
-                <div style={{ display: 'flex', gap: '6px', width: '100%', maxWidth: '240px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'stretch',
+                    gap: '8px',
+                    width: '100%',
+                    maxWidth: '280px',
+                    boxSizing: 'border-box',
+                  }}
+                >
                   <input
-                    type="tel"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     maxLength={4}
                     value={roomCode}
                     onChange={(e) => setRoomCode(e.target.value.replace(/\D/g, ''))}
-                    placeholder="예: 8440"
+                    placeholder="8440"
                     style={{
                       flex: 1,
+                      minWidth: 0,
+                      width: '100%',
                       textAlign: 'center',
                       fontSize: '16px',
                       fontWeight: '900',
-                      letterSpacing: '4px',
-                      padding: '8px',
+                      letterSpacing: '2px',
+                      padding: '9px 6px',
                       borderRadius: '10px',
                       border: '2px solid #0284c7',
+                      background: '#ffffff',
+                      color: '#0f172a',
+                      boxSizing: 'border-box',
+                      WebkitAppearance: 'none',
                     }}
                   />
                   <button
+                    type="button"
                     onClick={handleJoinRoom}
                     style={{
                       background: '#0284c7',
-                      color: '#fff',
+                      color: '#ffffff',
                       border: 'none',
                       borderRadius: '10px',
-                      padding: '0 14px',
-                      fontSize: '12.5px',
+                      padding: '0 16px',
+                      fontSize: '13px',
                       fontWeight: '800',
                       cursor: 'pointer',
+                      flexShrink: 0,
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     접속
@@ -828,7 +848,7 @@ export default function PlazaModal({
                       background: '#e2e8f0',
                       border: 'none',
                       borderRadius: '8px',
-                      padding: '3px 8px',
+                      padding: '4px 9px',
                       fontSize: '10.5px',
                       fontWeight: '800',
                       cursor: 'pointer',
@@ -838,7 +858,6 @@ export default function PlazaModal({
                   </button>
                 </div>
 
-                {/* 두 캐릭터 합동 모션 스테이지 */}
                 <div
                   style={{
                     width: '100%',
