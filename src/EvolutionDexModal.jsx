@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 import PetSprite from './PetSprite';
-import { SPECIES, STAGE_ORDER } from './evolutionTree';
+import { SPECIES } from './evolutionTree';
 import { sfx } from './sound';
+
+const STAGE_ORDER = [
+  { key: 'EGG', label: '🥚 알 단계' },
+  { key: 'BABY', label: '🐣 베이비 단계' },
+  { key: 'KID', label: '🐥 키드 단계' },
+  { key: 'TEEN', label: '🌟 성장기 단계' },
+  { key: 'ADULT', label: '👑 성체 & 전설·시크릿' },
+];
 
 const BIOME_META = {
   sky: { label: '하늘', icon: '☁️', color: '#0284c7' },
