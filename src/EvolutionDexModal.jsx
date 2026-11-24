@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import PetSprite from './PetSprite';
-import { SPECIES, STAGE_ORDER, SECRET_SPACE_VARIANTS } from './evolutionTree';
+import { SPECIES, STAGE_ORDER } from './evolutionTree';
 import { sfx } from './sound';
 
 const BIOME_META = {
@@ -8,6 +8,13 @@ const BIOME_META = {
   land: { label: '대지', icon: '🌱', color: '#16a34a' },
   water: { label: '바다', icon: '💧', color: '#0ea5e9' },
 };
+
+const SECRET_SPACE_VARIANTS = (() => {
+  const fromSpecies = Object.keys(SPECIES).filter((k) => SPECIES[k]?.isSecretVariant);
+  return fromSpecies.length > 0
+    ? fromSpecies
+    : ['SECRET_WOODY', 'SECRET_GROGU', 'SECRET_KITTY', 'SECRET_R2D2', 'SECRET_SNOOPY'];
+})();
 
 export default function EvolutionDexModal({
   unlockedSpecies = ['EGG'],
