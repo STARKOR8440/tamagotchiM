@@ -202,6 +202,21 @@ export default function App() {
   const [showGuide, setShowGuide] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showPlaza, setShowPlaza] = useState(false);
+  const [irBattleMeta, setIrBattleMeta] = useState(() => {
+  const today = getTodayStr();
+  const saved = localStorage.getItem('tamagotchi_ir_battle_v1');
+  if (!saved) return { date: today, wins: 0 };
+  try {
+    const parsed = JSON.parse(saved);
+    return parsed.date === today ? { date: today, wins: parsed.wins || 0 } : { date: today, wins: 0 };
+  } catch {
+    return { date: today, wins: 0 };
+  }
+});
+
+useEffect(() => {
+  localStorage.setItem('tamagotchi_ir_battle_v1', JSON.stringify(irBattleMeta));
+}, [irBattleMeta]);
   const [devUnlocked, setDevUnlocked] = useState(false);
   const [actionState, setActionState] = useState('IDLE');
   const [isMuted, setIsMuted] = useState(false);
@@ -1595,6 +1610,8 @@ export default function App() {
           nickname={pet.nickname}
           avatarId={pet.plazaAvatarId || 'BABY_MARU'}
           petCoins={pet.coins}
+          irBattleWinsToday={irBattleMeta.date === getTodayStr() ? irBattleMeta.wins : 0}
+          irBattleDailyLimit={5}
           onUpdateProfile={(newNick, newAvatar) => {
             setPet((p) => ({ ...p, nickname: newNick, plazaAvatarId: newAvatar }));
           }}
@@ -1602,8 +1619,17 @@ export default function App() {
             setPet((p) => ({ ...p, coins: Math.max(0, (p.coins || 0) - cost) }));
           }}
           onWinBattleCoin={(reward) => {
+            const today = getTodayStr();
+            const currentWins = irBattleMeta.date === today ? irBattleMeta.wins : 0;
+            if (currentWins >= 5) {
+              sfx.beep();
+              triggerReaction('오늘 IR 대전 보상(5/5) 완료! 🤝');
+              return;
+            }
             sfx.win();
+            setIrBattleMeta({ date: today, wins: currentWins + 1 });
             setPet((p) => ({ ...p, coins: (p.coins || 0) + reward }));
+            triggerReaction(`IR 대전 승리! +${reward}🪙 (${currentWins + 1}/5)`);
           }}
           onClose={() => {
             sfx.beep();

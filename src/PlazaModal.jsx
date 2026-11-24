@@ -6,17 +6,34 @@ import { sfx } from './sound';
 
 const AVATAR_CANDIDATES = Object.values(SPECIES).filter((s) => s.stage !== 'EGG');
 
+const BATTLE_MODES = [
+  { id: 'RPS', icon: '✊', label: '가위바위보', reward: 50 },
+  { id: 'DICE', icon: '🎲', label: '2D6 주사위', reward: 50 },
+  { id: 'DUEL', icon: '⚔️', label: '창·방패·필살', reward: 60 },
+];
+
 const RPS_OPTIONS = [
   { id: 'ROCK', icon: '✊', label: '바위' },
   { id: 'SCISSORS', icon: '✌️', label: '가위' },
   { id: 'PAPER', icon: '🖐️', label: '보' },
 ];
 
+const DUEL_OPTIONS = [
+  { id: 'SPEAR', icon: '⚔️', label: '창(공격)', sub: '필살기 제압' },
+  { id: 'SHIELD', icon: '🛡️', label: '방패(수비)', sub: '창 공격 반격' },
+  { id: 'ULT', icon: '🔥', label: '필살기', sub: '방패 관통' },
+];
+
+const DICE_FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+
+// PlazaModal 함수 시그니처에 추가
 export default function PlazaModal({
   userId,
   nickname,
   avatarId,
   petCoins,
+  irBattleWinsToday = 0,
+  irBattleDailyLimit = 5,
   onUpdateProfile,
   onSendGiftCoin,
   onWinBattleCoin,
@@ -35,6 +52,7 @@ export default function PlazaModal({
 
   const [roomCode, setRoomCode] = useState('');
   const [joinedRoom, setJoinedRoom] = useState('');
+  const [selectedMode, setSelectedMode] = useState('RPS');
   const [roomData, setRoomData] = useState(null);
 
   const chatEndRef = useRef(null);
@@ -133,6 +151,9 @@ export default function PlazaModal({
         const res = await fetch(`${FIREBASE_DB_URL}/plaza/rooms/${joinedRoom}.json`);
         const data = await res.json();
         setRoomData(data);
+        if (data?.mode) {
+          setSelectedMode(data.mode);
+        }
       } catch {
         // 무시
       }
@@ -184,7 +205,6 @@ export default function PlazaModal({
     setEditingProfile(false);
   };
 
- // handleSendGift 교체
   const handleSendGift = async (targetUser, giftType) => {
     if (targetUser.userId === userId) return;
 
@@ -229,6 +249,18 @@ export default function PlazaModal({
     setSelectedTarget(null);
   };
 
+  const makeBotChoiceForMode = (mode) => {
+    if (mode === 'DICE') {
+      const d1 = Math.floor(Math.random() * 6) + 1;
+      const d2 = Math.floor(Math.random() * 6) + 1;
+      return `${d1},${d2}`;
+    }
+    if (mode === 'DUEL') {
+      return ['SPEAR', 'SHIELD', 'ULT'][Math.floor(Math.random() * 3)];
+    }
+    return ['ROCK', 'SCISSORS', 'PAPER'][Math.floor(Math.random() * 3)];
+  };
+
   const handleJoinRoom = async () => {
     const cleanCode = roomCode.trim();
     if (cleanCode.length !== 4) {
@@ -240,9 +272,15 @@ export default function PlazaModal({
 
     if (!isFirebaseConfigured()) {
       setRoomData({
+        mode: selectedMode,
         players: {
           [userId]: { userId, nickname, avatarId, choice: '' },
-          cpu_guest: { userId: 'cpu_guest', nickname: '적외선친구', avatarId: 'SECRET_KITTY', choice: 'SCISSORS' },
+          cpu_guest: {
+            userId: 'cpu_guest',
+            nickname: '적외선친구',
+            avatarId: 'SECRET_KITTY',
+            choice: makeBotChoiceForMode(selectedMode),
+          },
         },
       });
       return;
@@ -255,6 +293,7 @@ export default function PlazaModal({
 
       const isExpired = !existing || now - (existing.updatedAt || 0) > 120000;
       const players = isExpired ? {} : existing.players || {};
+      const activeMode = isExpired ? selectedMode : existing.mode || selectedMode;
 
       const pKeys = Object.keys(players);
       if (pKeys.length >= 2 && !players[userId]) {
@@ -264,7 +303,8 @@ export default function PlazaModal({
       }
 
       players[userId] = { userId, nickname, avatarId, choice: '' };
-      const nextRoomState = { players, updatedAt: now };
+      const nextRoomState = { mode: activeMode, players, updatedAt: now };
+      setSelectedMode(activeMode);
 
       await fetch(`${FIREBASE_DB_URL}/plaza/rooms/${cleanCode}.json`, {
         method: 'PUT',
@@ -273,6 +313,33 @@ export default function PlazaModal({
       setRoomData(nextRoomState);
     } catch {
       // 무시
+    }
+  };
+
+  const handleSwitchBattleMode = async (nextMode) => {
+    sfx.beep();
+    setSelectedMode(nextMode);
+    if (!joinedRoom || !roomData?.players) return;
+
+    const resetPlayers = {};
+    Object.values(roomData.players).forEach((p) => {
+      resetPlayers[p.userId] = {
+        ...p,
+        choice: p.userId === 'cpu_guest' ? makeBotChoiceForMode(nextMode) : '',
+      };
+    });
+    const nextState = { mode: nextMode, players: resetPlayers, updatedAt: Date.now() };
+    setRoomData(nextState);
+
+    if (isFirebaseConfigured()) {
+      try {
+        await fetch(`${FIREBASE_DB_URL}/plaza/rooms/${joinedRoom}.json`, {
+          method: 'PUT',
+          body: JSON.stringify(nextState),
+        });
+      } catch {
+        // 무시
+      }
     }
   };
 
@@ -298,6 +365,7 @@ export default function PlazaModal({
         await fetch(`${FIREBASE_DB_URL}/plaza/rooms/${targetRoom}.json`, {
           method: 'PUT',
           body: JSON.stringify({
+            mode: current.mode || selectedMode,
             players: current.players,
             updatedAt: Date.now(),
           }),
@@ -344,16 +412,25 @@ export default function PlazaModal({
     }
   };
 
+  const handleRollDice = () => {
+    const d1 = Math.floor(Math.random() * 6) + 1;
+    const d2 = Math.floor(Math.random() * 6) + 1;
+    handleSelectBattleChoice(`${d1},${d2}`);
+  };
+
   const handleResetBattleRound = async () => {
     sfx.confirm();
+    const activeMode = roomData?.mode || selectedMode;
     if (!isFirebaseConfigured()) {
-      const cpuMoves = ['ROCK', 'SCISSORS', 'PAPER'];
-      const nextCpu = cpuMoves[Math.floor(Math.random() * 3)];
       setRoomData((prev) => ({
         ...prev,
+        mode: activeMode,
         players: {
           [userId]: { ...prev.players[userId], choice: '' },
-          cpu_guest: { ...prev.players.cpu_guest, choice: nextCpu },
+          cpu_guest: {
+            ...prev.players.cpu_guest,
+            choice: makeBotChoiceForMode(activeMode),
+          },
         },
       }));
       return;
@@ -364,7 +441,7 @@ export default function PlazaModal({
     Object.values(roomData.players).forEach((p) => {
       resetPlayers[p.userId] = { ...p, choice: '' };
     });
-    const nextState = { players: resetPlayers, updatedAt: Date.now() };
+    const nextState = { mode: activeMode, players: resetPlayers, updatedAt: Date.now() };
     await fetch(`${FIREBASE_DB_URL}/plaza/rooms/${joinedRoom}.json`, {
       method: 'PUT',
       body: JSON.stringify(nextState),
@@ -376,20 +453,84 @@ export default function PlazaModal({
   const playersArr = roomData?.players ? Object.values(roomData.players) : [];
   const mePlayer = playersArr.find((p) => p.userId === userId);
   const oppPlayer = playersArr.find((p) => p.userId !== userId);
-  const bothChosen = mePlayer?.choice && oppPlayer?.choice;
+  const activeMode = roomData?.mode || selectedMode;
+  const bothChosen = Boolean(mePlayer?.choice && oppPlayer?.choice);
+  const hasBattleRewardLeft = irBattleWinsToday < irBattleDailyLimit;
+  const effectiveBattleReward = hasBattleRewardLeft ? battleReward : 0;
+
+  // 선택값 파싱 및 승패·보상 판정
+  const parseDice = (str) => {
+    const [a, b] = String(str || '').split(',').map((n) => Number(n) || 1);
+    return { d1: a, d2: b, sum: a + b, isDouble: a === b };
+  };
 
   let battleResultText = '';
+  let battleReward = 0;
+  let centerDisplay = '⚡IR⚡';
+
   if (bothChosen) {
-    if (mePlayer.choice === oppPlayer.choice) {
-      battleResultText = '비겼습니다! 한 번 더! 🤝';
-    } else if (
-      (mePlayer.choice === 'ROCK' && oppPlayer.choice === 'SCISSORS') ||
-      (mePlayer.choice === 'SCISSORS' && oppPlayer.choice === 'PAPER') ||
-      (mePlayer.choice === 'PAPER' && oppPlayer.choice === 'ROCK')
-    ) {
-      battleResultText = '승리! 보너스 +50🪙 획득 🎉';
+    if (activeMode === 'DICE') {
+      const myDice = parseDice(mePlayer.choice);
+      const oppDice = parseDice(oppPlayer.choice);
+      centerDisplay = `${DICE_FACES[myDice.d1 - 1]}${DICE_FACES[myDice.d2 - 1]}(${myDice.sum}) vs ${
+        DICE_FACES[oppDice.d1 - 1]
+      }${DICE_FACES[oppDice.d2 - 1]}(${oppDice.sum})`;
+
+      if (myDice.sum === oppDice.sum) {
+        battleResultText = `무승부 (${myDice.sum} vs ${oppDice.sum})! 한 번 더! 🤝`;
+      } else if (myDice.sum > oppDice.sum) {
+        battleReward = myDice.isDouble ? 100 : 50;
+        battleResultText = myDice.isDouble
+          ? `더블 대승리! 보너스 2배 +${battleReward}🪙 🎉`
+          : `주사위 승리! +${battleReward}🪙 획득 🎉`;
+      } else {
+        battleResultText = `아쉽네요! 상대 주사위(${oppDice.sum}) 승리 😅`;
+      }
+    } else if (activeMode === 'DUEL') {
+      const myOpt = DUEL_OPTIONS.find((r) => r.id === mePlayer.choice);
+      const oppOpt = DUEL_OPTIONS.find((r) => r.id === oppPlayer.choice);
+      centerDisplay = `${myOpt?.icon || ''} vs ${oppOpt?.icon || ''}`;
+
+      if (mePlayer.choice === oppPlayer.choice) {
+        battleResultText = '동시 격돌 무승부! 한 번 더! 🤝';
+      } else if (
+        (mePlayer.choice === 'SPEAR' && oppPlayer.choice === 'ULT') ||
+        (mePlayer.choice === 'SHIELD' && oppPlayer.choice === 'SPEAR') ||
+        (mePlayer.choice === 'ULT' && oppPlayer.choice === 'SHIELD')
+      ) {
+        battleReward = 60;
+        battleResultText = `상성 간파 승리! +${battleReward}🪙 획득 🎉`;
+      } else {
+        battleResultText = '상대에게 빈틈을 찔렸습니다! 😅';
+      }
     } else {
-      battleResultText = '아쉽네요! 상대방 승리 😅';
+      const myOpt = RPS_OPTIONS.find((r) => r.id === mePlayer.choice);
+      const oppOpt = RPS_OPTIONS.find((r) => r.id === oppPlayer.choice);
+      centerDisplay = `${myOpt?.icon || ''} vs ${oppOpt?.icon || ''}`;
+
+      if (mePlayer.choice === oppPlayer.choice) {
+        battleResultText = '비겼습니다! 한 번 더! 🤝';
+      } else if (
+        (mePlayer.choice === 'ROCK' && oppPlayer.choice === 'SCISSORS') ||
+        (mePlayer.choice === 'SCISSORS' && oppPlayer.choice === 'PAPER') ||
+        (mePlayer.choice === 'PAPER' && oppPlayer.choice === 'ROCK')
+      ) {
+        battleReward = 50;
+        battleResultText = `승리! 보너스 +${battleReward}🪙 획득 🎉`;
+      } else {
+        battleResultText = '아쉽네요! 상대방 승리 😅';
+      }
+    }
+  } else if (mePlayer?.choice) {
+    if (activeMode === 'DICE') {
+      const myDice = parseDice(mePlayer.choice);
+      centerDisplay = `${DICE_FACES[myDice.d1 - 1]}${DICE_FACES[myDice.d2 - 1]}(${myDice.sum}) vs ?`;
+    } else if (activeMode === 'DUEL') {
+      const myOpt = DUEL_OPTIONS.find((r) => r.id === mePlayer.choice);
+      centerDisplay = `${myOpt?.icon || ''} vs ?`;
+    } else {
+      const myOpt = RPS_OPTIONS.find((r) => r.id === mePlayer.choice);
+      centerDisplay = `${myOpt?.icon || ''} vs ?`;
     }
   }
 
@@ -489,7 +630,7 @@ export default function PlazaModal({
                   {nickname}
                 </div>
                 <div style={{ fontSize: '12px', color: '#0284c7', fontWeight: '700' }}>
-                  {SPECIES[avatarId]?.name || '몽글 베이비'}
+                  {SPECIES[avatarId]?.name || '몽글 베이비'} · 보유 {petCoins}🪙
                 </div>
               </div>
             </div>
@@ -648,7 +789,7 @@ export default function PlazaModal({
               cursor: 'pointer',
             }}
           >
-            ⚡ 1:1 IR 대전
+            ⚡ 1:1 IR 대전 (3종)
           </button>
         </div>
 
@@ -711,7 +852,6 @@ export default function PlazaModal({
               })}
             </div>
 
-            // selectedTarget 선물 패널 JSX 교체
             {selectedTarget && (
               <div
                 style={{
@@ -795,7 +935,7 @@ export default function PlazaModal({
                     onClick={() => handleSendGift(selectedTarget, 'COIN')}
                     style={{
                       flex: 1,
-                      minWidth: '86px',
+                      minWidth: '92px',
                       background: '#eab308',
                       color: '#0f172a',
                       border: 'none',
@@ -815,8 +955,8 @@ export default function PlazaModal({
             <div
               style={{
                 flex: 1,
-                minHeight: '150px',
-                maxHeight: '220px',
+                minHeight: '140px',
+                maxHeight: '210px',
                 overflowY: 'auto',
                 background: '#f8fafc',
                 border: '1.5px solid #e2e8f0',
@@ -888,28 +1028,64 @@ export default function PlazaModal({
             </form>
           </>
         ) : (
-          /* 1:1 IR 적외선 통신 대전 화면 */
+          /* 1:1 IR 적외선 통신 대전 화면 (3종 모드 선택형) */
           <div
             style={{
               background: '#f8fafc',
               border: '1.5px solid #cbd5e1',
               borderRadius: '18px',
-              padding: '18px 16px',
+              padding: '16px',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: '14px',
+              gap: '12px',
               width: '100%',
               boxSizing: 'border-box',
+              overflowY: 'auto',
             }}
           >
+            {/* 대전 종목 선택 바 (입장 전·후 모두 변경 가능, 방에 동기화됨) */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', width: '100%' }}>
+              {BATTLE_MODES.map((m) => {
+                const isSelected = activeMode === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => handleSwitchBattleMode(m.id)}
+                    style={{
+                      padding: '8px 4px',
+                      borderRadius: '12px',
+                      border: isSelected ? '2px solid #0284c7' : '1.5px solid #cbd5e1',
+                      background: isSelected ? '#e0f2fe' : '#ffffff',
+                      color: isSelected ? '#0369a1' : '#475569',
+                      fontSize: '12px',
+                      fontWeight: '900',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '2px',
+                    }}
+                  >
+                    <span>{m.icon} {m.label}</span>
+                    <span style={{ fontSize: '10.5px', fontWeight: '700', color: isSelected ? '#0284c7' : '#94a3b8' }}>
+                      승리 +{m.reward}🪙
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
             {!joinedRoom ? (
               <>
-                <div style={{ fontSize: '15px', fontWeight: '900', color: '#0f172a', textAlign: 'center' }}>
+                <div style={{ fontSize: '15px', fontWeight: '900', color: '#0f172a', textAlign: 'center', marginTop: '4px' }}>
                   📡 4자리 초대코드로 친구와 연결!
                 </div>
                 <div style={{ fontSize: '13px', color: '#475569', textAlign: 'center', lineHeight: 1.45 }}>
-                  같은 4자리 숫자를 입력하면 두 캐릭터가 만나 실시간 가위바위보 대결을 펼칩니다.
+                  {activeMode === 'DICE' && '주사위 2개를 굴려 합이 높은 쪽이 승리! (더블 승리 시 2배 +100🪙)'}
+                  {activeMode === 'DUEL' && '⚔️창 > 🔥필살기 > 🛡️방패 > ⚔️창 상성 심리전 대결!'}
+                  {activeMode === 'RPS' && '같은 4자리 숫자를 입력하면 두 캐릭터가 만나 가위바위보 대결을 펼칩니다.'}
                 </div>
                 <div
                   style={{
@@ -988,16 +1164,19 @@ export default function PlazaModal({
                   </button>
                 </div>
 
+                {/* 배틀 무대 */}
                 <div
                   style={{
                     width: '100%',
-                    height: '120px',
+                    height: '122px',
                     background: 'linear-gradient(180deg, #e0f2fe 0%, #bae6fd 100%)',
                     borderRadius: '16px',
                     border: '2px solid #38bdf8',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-around',
+                    padding: '0 6px',
+                    boxSizing: 'border-box',
                   }}
                 >
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -1007,12 +1186,15 @@ export default function PlazaModal({
                     <span style={{ fontSize: '12.5px', fontWeight: '900' }}>{nickname}</span>
                   </div>
 
-                  <div style={{ fontSize: '22px', fontWeight: '900', color: '#ef4444' }}>
-                    {bothChosen
-                      ? `${RPS_OPTIONS.find((r) => r.id === mePlayer.choice)?.icon} vs ${
-                          RPS_OPTIONS.find((r) => r.id === oppPlayer.choice)?.icon
-                        }`
-                      : '⚡IR⚡'}
+                  <div
+                    style={{
+                      fontSize: activeMode === 'DICE' && bothChosen ? '16px' : '21px',
+                      fontWeight: '900',
+                      color: '#ef4444',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {centerDisplay}
                   </div>
 
                   {oppPlayer ? (
@@ -1029,57 +1211,121 @@ export default function PlazaModal({
                   )}
                 </div>
 
+                {/* 종목별 입력 컨트롤 */}
                 {oppPlayer && !bothChosen && (
                   <>
-                    <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#334155' }}>
-                      {mePlayer?.choice ? '상대방 선택을 기다리는 중...' : '가위·바위·보를 선택하세요!'}
+                    <div style={{ fontSize: '13px', fontWeight: '800', color: '#334155', textAlign: 'center' }}>
+                      {mePlayer?.choice
+                        ? '상대방의 행동을 기다리는 중...'
+                        : activeMode === 'DICE'
+                        ? '주사위 2개를 굴려 합산 점수를 겨루세요!'
+                        : activeMode === 'DUEL'
+                        ? '⚔️창 > 🔥필살 > 🛡️방패 > ⚔️창 상성을 노리세요!'
+                        : '가위·바위·보를 선택하세요!'}
                     </div>
-                    <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
-                      {RPS_OPTIONS.map((opt) => (
-                        <button
-                          key={opt.id}
-                          onClick={() => handleSelectBattleChoice(opt.id)}
-                          style={{
-                            flex: 1,
-                            padding: '12px',
-                            borderRadius: '14px',
-                            border: mePlayer?.choice === opt.id ? '2.5px solid #0284c7' : '1.5px solid #cbd5e1',
-                            background: mePlayer?.choice === opt.id ? '#e0f2fe' : '#ffffff',
-                            fontSize: '22px',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {opt.icon}
-                        </button>
-                      ))}
-                    </div>
+
+                    {activeMode === 'DICE' ? (
+                      <button
+                        type="button"
+                        disabled={Boolean(mePlayer?.choice)}
+                        onClick={handleRollDice}
+                        style={{
+                          width: '100%',
+                          padding: '13px',
+                          borderRadius: '14px',
+                          border: '2px solid #0284c7',
+                          background: mePlayer?.choice ? '#cbd5e1' : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                          color: '#ffffff',
+                          fontSize: '15px',
+                          fontWeight: '900',
+                          cursor: mePlayer?.choice ? 'default' : 'pointer',
+                        }}
+                      >
+                        {mePlayer?.choice
+                          ? `🎲 내 결과: ${parseDice(mePlayer.choice).sum}점 (상대 대기중)`
+                          : '🎲 2D6 주사위 굴리기!'}
+                      </button>
+                    ) : activeMode === 'DUEL' ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', width: '100%' }}>
+                        {DUEL_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => handleSelectBattleChoice(opt.id)}
+                            style={{
+                              padding: '10px 4px',
+                              borderRadius: '14px',
+                              border: mePlayer?.choice === opt.id ? '2.5px solid #0284c7' : '1.5px solid #cbd5e1',
+                              background: mePlayer?.choice === opt.id ? '#e0f2fe' : '#ffffff',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              gap: '2px',
+                            }}
+                          >
+                            <span style={{ fontSize: '20px' }}>{opt.icon}</span>
+                            <span style={{ fontSize: '12px', fontWeight: '900', color: '#0f172a' }}>{opt.label}</span>
+                            <span style={{ fontSize: '10px', fontWeight: '700', color: '#64748b' }}>{opt.sub}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                        {RPS_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => handleSelectBattleChoice(opt.id)}
+                            style={{
+                              flex: 1,
+                              padding: '12px',
+                              borderRadius: '14px',
+                              border: mePlayer?.choice === opt.id ? '2.5px solid #0284c7' : '1.5px solid #cbd5e1',
+                              background: mePlayer?.choice === opt.id ? '#e0f2fe' : '#ffffff',
+                              fontSize: '22px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {opt.icon}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </>
                 )}
 
                 {bothChosen && (
-                  <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div style={{ fontSize: '15.5px', fontWeight: '900', color: '#0f172a' }}>
+                  <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                    <div style={{ fontSize: '15px', fontWeight: '900', color: '#0f172a' }}>
                       {battleResultText}
+                    </div>
+                    <div style={{ fontSize: '12px', fontWeight: '800', color: '#0369a1' }}>
+                      오늘 IR 코인 보상: {Math.min(irBattleWinsToday, irBattleDailyLimit)} / {irBattleDailyLimit}회
                     </div>
                     <button
                       onClick={() => {
-                        if (battleResultText.includes('승리!')) {
-                          onWinBattleCoin(50);
+                        if (effectiveBattleReward > 0) {
+                          onWinBattleCoin(effectiveBattleReward);
                         }
                         handleResetBattleRound();
                       }}
                       style={{
-                        background: '#16a34a',
+                        background: effectiveBattleReward > 0 ? '#16a34a' : '#475569',
                         color: '#fff',
                         border: 'none',
                         borderRadius: '12px',
-                        padding: '9px 18px',
+                        padding: '10px 18px',
                         fontSize: '13.5px',
                         fontWeight: '800',
                         cursor: 'pointer',
                       }}
                     >
-                      보상 수령 & 다음 판 준비
+                      {effectiveBattleReward > 0
+                        ? `+${effectiveBattleReward}🪙 보상 수령 & 다음 판`
+                        : battleReward > 0
+                        ? '일일 보상 소진 (친선 다음 판)'
+                        : '다음 판 준비'}
                     </button>
                   </div>
                 )}
