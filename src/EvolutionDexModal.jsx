@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
 import PetSprite from './PetSprite';
-import { SPECIES, STAGE_ORDER, BIOME_META, SECRET_SPACE_VARIANTS } from './evolutionTree';
+import { SPECIES, STAGE_ORDER, SECRET_SPACE_VARIANTS } from './evolutionTree';
 import { sfx } from './sound';
+
+const BIOME_META = {
+  sky: { label: '하늘', icon: '☁️', color: '#0284c7' },
+  land: { label: '대지', icon: '🌱', color: '#16a34a' },
+  water: { label: '바다', icon: '💧', color: '#0ea5e9' },
+};
 
 export default function EvolutionDexModal({
   unlockedSpecies = ['EGG'],
