@@ -208,22 +208,32 @@ export default function PlazaModal({
   const handleSendGift = async (targetUser, giftType) => {
     if (targetUser.userId === userId) return;
 
-    const cleanCoinAmt = Math.max(1, Math.min(9999, Math.floor(Number(giftCoinAmount) || 0)));
+    const normalizedGiftCoins = Math.max(1, Math.min(9999, Math.floor(Number(giftCoinAmount) || 1)));
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const giftLogKey = `tamagotchi_gift_sent_${todayStr}`;
+    const alreadySentToday = Number(localStorage.getItem(giftLogKey) || 0);
+    const DAILY_GIFT_LIMIT = 200;
 
     if (giftType === 'COIN') {
-      if (!cleanCoinAmt || petCoins < cleanCoinAmt) {
+      if (petCoins < normalizedGiftCoins) {
         sfx.beep();
-        alert(`코인이 부족합니다! (${cleanCoinAmt}🪙 필요, 보유: ${petCoins}🪙)`);
+        alert(`코인이 부족합니다! (${normalizedGiftCoins}🪙 필요, 보유: ${petCoins}🪙)`);
         return;
       }
-      onSendGiftCoin(cleanCoinAmt);
+      if (alreadySentToday + normalizedGiftCoins > DAILY_GIFT_LIMIT) {
+        sfx.beep();
+        alert(`오늘 코인 선물 한도(${DAILY_GIFT_LIMIT}🪙)를 초과했습니다! (오늘 발송: ${alreadySentToday}🪙)`);
+        return;
+      }
+      localStorage.setItem(giftLogKey, String(alreadySentToday + normalizedGiftCoins));
+      onSendGiftCoin(normalizedGiftCoins);
     }
 
     sfx.win();
     const giftLabels = {
       HEART: '❤️ 하트(행복+15)',
       CAKE: '🍰 달콤 케이크(포만+15)',
-      COIN: `🪙 ${cleanCoinAmt}코인 용돈`,
+      COIN: `🪙 ${normalizedGiftCoins}코인 용돈`,
     };
 
     if (isFirebaseConfigured()) {
@@ -233,7 +243,7 @@ export default function PlazaModal({
           body: JSON.stringify({
             from: nickname,
             type: giftType,
-            amount: giftType === 'COIN' ? cleanCoinAmt : 0,
+            amount: giftType === 'COIN' ? normalizedGiftCoins : 0,
             ts: Date.now(),
           }),
         });
@@ -946,7 +956,7 @@ export default function PlazaModal({
                       cursor: 'pointer',
                     }}
                   >
-                    🪙 {Number(giftCoinAmount) || 0}코인 보내기
+                    🪙 {normalizedGiftCoins}코인 보내기
                   </button>
                 </div>
               </div>
