@@ -5,6 +5,7 @@ import { FIREBASE_DB_URL, isFirebaseConfigured } from './firebaseConfig';
 import { sfx } from './sound';
 
 const AVATAR_CANDIDATES = Object.values(SPECIES).filter((s) => s.stage !== 'EGG');
+const DAILY_GIFT_COIN_LIMIT = 200;
 
 const BATTLE_MODES = [
   { id: 'RPS', icon: '✊', label: '가위바위보', reward: 50 },
@@ -26,7 +27,20 @@ const DUEL_OPTIONS = [
 
 const DICE_FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 
-// PlazaModal 함수 시그니처에 추가
+const getTodayKey = () => new Date().toISOString().slice(0, 10);
+
+const getSentCoinsToday = () => {
+  const key = `tamagotchi_gift_sent_${getTodayKey()}`;
+  return Math.max(0, Number(localStorage.getItem(key) || 0));
+};
+
+const addSentCoinsToday = (amount) => {
+  const key = `tamagotchi_gift_sent_${getTodayKey()}`;
+  const nextVal = getSentCoinsToday() + Math.max(0, Number(amount) || 0);
+  localStorage.setItem(key, String(nextVal));
+  return nextVal;
+};
+
 export default function PlazaModal({
   userId,
   nickname,
@@ -49,6 +63,7 @@ export default function PlazaModal({
   const [chatInput, setChatInput] = useState('');
   const [selectedTarget, setSelectedTarget] = useState(null);
   const [giftCoinAmount, setGiftCoinAmount] = useState(20);
+  const [sentCoinsToday, setSentCoinsToday] = useState(() => getSentCoinsToday());
 
   const [roomCode, setRoomCode] = useState('');
   const [joinedRoom, setJoinedRoom] = useState('');
@@ -56,6 +71,9 @@ export default function PlazaModal({
   const [roomData, setRoomData] = useState(null);
 
   const chatEndRef = useRef(null);
+
+  const normalizedGiftCoins = Math.max(1, Math.min(9999, Math.floor(Number(giftCoinAmount) || 1)));
+  const remainingGiftLimit = Math.max(0, DAILY_GIFT_COIN_LIMIT - sentCoinsToday);
 
   // 내 접속 상태(Presence) 등록 및 15초마다 하트비트 갱신
   useEffect(() => {
@@ -208,24 +226,28 @@ export default function PlazaModal({
   const handleSendGift = async (targetUser, giftType) => {
     if (targetUser.userId === userId) return;
 
-    const normalizedGiftCoins = Math.max(1, Math.min(9999, Math.floor(Number(giftCoinAmount) || 1)));
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const giftLogKey = `tamagotchi_gift_sent_${todayStr}`;
-    const alreadySentToday = Number(localStorage.getItem(giftLogKey) || 0);
-    const DAILY_GIFT_LIMIT = 200;
+    const latestSent = getSentCoinsToday();
+    setSentCoinsToday(latestSent);
 
     if (giftType === 'COIN') {
-      if (petCoins < normalizedGiftCoins) {
+      if ((petCoins || 0) < normalizedGiftCoins) {
         sfx.beep();
-        alert(`코인이 부족합니다! (${normalizedGiftCoins}🪙 필요, 보유: ${petCoins}🪙)`);
+        alert(`코인이 부족합니다! (${normalizedGiftCoins}🪙 필요, 보유: ${petCoins || 0}🪙)`);
         return;
       }
-      if (alreadySentToday + normalizedGiftCoins > DAILY_GIFT_LIMIT) {
+      if (latestSent + normalizedGiftCoins > DAILY_GIFT_COIN_LIMIT) {
         sfx.beep();
-        alert(`오늘 코인 선물 한도(${DAILY_GIFT_LIMIT}🪙)를 초과했습니다! (오늘 발송: ${alreadySentToday}🪙)`);
+        alert(
+          `오늘 코인 선물 한도(${DAILY_GIFT_COIN_LIMIT}🪙)를 초과했습니다!\n오늘 보낸 코인: ${latestSent}🪙 (남은 한도: ${Math.max(
+            0,
+            DAILY_GIFT_COIN_LIMIT - latestSent
+          )}🪙)`
+        );
         return;
       }
-      localStorage.setItem(giftLogKey, String(alreadySentToday + normalizedGiftCoins));
+
+      const updatedSent = addSentCoinsToday(normalizedGiftCoins);
+      setSentCoinsToday(updatedSent);
       onSendGiftCoin(normalizedGiftCoins);
     }
 
@@ -465,10 +487,9 @@ export default function PlazaModal({
   const oppPlayer = playersArr.find((p) => p.userId !== userId);
   const activeMode = roomData?.mode || selectedMode;
   const bothChosen = Boolean(mePlayer?.choice && oppPlayer?.choice);
-  const hasBattleRewardLeft = irBattleWinsToday < irBattleDailyLimit;
-  const effectiveBattleReward = hasBattleRewardLeft ? battleReward : 0;
 
-  // 선택값 파싱 및 승패·보상 판정
+  const hasBattleRewardLeft = irBattleWinsToday < irBattleDailyLimit;
+
   const parseDice = (str) => {
     const [a, b] = String(str || '').split(',').map((n) => Number(n) || 1);
     return { d1: a, d2: b, sum: a + b, isDouble: a === b };
@@ -543,6 +564,8 @@ export default function PlazaModal({
       centerDisplay = `${myOpt?.icon || ''} vs ?`;
     }
   }
+
+  const effectiveBattleReward = hasBattleRewardLeft ? battleReward : 0;
 
   return (
     <div
@@ -827,6 +850,7 @@ export default function PlazaModal({
                     onClick={() => {
                       if (isMe) return;
                       sfx.beep();
+                      setSentCoinsToday(getSentCoinsToday());
                       setSelectedTarget(isSelected ? null : u);
                     }}
                     style={{
@@ -874,9 +898,23 @@ export default function PlazaModal({
                   gap: '8px',
                 }}
               >
-                <div style={{ fontSize: '13px', fontWeight: '900', color: '#854d0e' }}>
-                  🎁 [{selectedTarget.nickname}]님에게 선물 보내기 (보유: {petCoins}🪙)
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '6px',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <span style={{ fontSize: '13px', fontWeight: '900', color: '#854d0e' }}>
+                    🎁 [{selectedTarget.nickname}]님에게 선물 보내기
+                  </span>
+                  <span style={{ fontSize: '11.5px', fontWeight: '800', color: '#a16207' }}>
+                    일일 코인 한도: {sentCoinsToday}/{DAILY_GIFT_COIN_LIMIT}🪙 (남음 {remainingGiftLimit}🪙)
+                  </span>
                 </div>
+
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button onClick={() => handleSendGift(selectedTarget, 'HEART')} style={giftBtnStyle}>
                     ❤️ 하트(행복+15)
@@ -893,7 +931,7 @@ export default function PlazaModal({
                     alignItems: 'center',
                     gap: '6px',
                     flexWrap: 'wrap',
-                    background: 'rgba(255,255,255,0.75)',
+                    background: 'rgba(255,255,255,0.78)',
                     padding: '6px 8px',
                     borderRadius: '10px',
                     border: '1px solid #fde047',
@@ -910,8 +948,8 @@ export default function PlazaModal({
                       style={{
                         padding: '4px 8px',
                         borderRadius: '8px',
-                        border: giftCoinAmount === preset ? '1.5px solid #ca8a04' : '1px solid #cbd5e1',
-                        background: giftCoinAmount === preset ? '#facc15' : '#ffffff',
+                        border: normalizedGiftCoins === preset ? '1.5px solid #ca8a04' : '1px solid #cbd5e1',
+                        background: normalizedGiftCoins === preset ? '#facc15' : '#ffffff',
                         fontSize: '11.5px',
                         fontWeight: '800',
                         cursor: 'pointer',
@@ -927,6 +965,7 @@ export default function PlazaModal({
                     max={9999}
                     value={giftCoinAmount}
                     onChange={(e) => setGiftCoinAmount(e.target.value.replace(/\D/g, ''))}
+                    onBlur={() => setGiftCoinAmount(String(normalizedGiftCoins))}
                     placeholder="금액"
                     style={{
                       width: '72px',
@@ -945,7 +984,7 @@ export default function PlazaModal({
                     onClick={() => handleSendGift(selectedTarget, 'COIN')}
                     style={{
                       flex: 1,
-                      minWidth: '92px',
+                      minWidth: '96px',
                       background: '#eab308',
                       color: '#0f172a',
                       border: 'none',
@@ -1054,7 +1093,7 @@ export default function PlazaModal({
               overflowY: 'auto',
             }}
           >
-            {/* 대전 종목 선택 바 (입장 전·후 모두 변경 가능, 방에 동기화됨) */}
+            {/* 대전 종목 선택 바 */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', width: '100%' }}>
               {BATTLE_MODES.map((m) => {
                 const isSelected = activeMode === m.id;
@@ -1080,7 +1119,7 @@ export default function PlazaModal({
                   >
                     <span>{m.icon} {m.label}</span>
                     <span style={{ fontSize: '10.5px', fontWeight: '700', color: isSelected ? '#0284c7' : '#94a3b8' }}>
-                      승리 +{m.reward}🪙
+                      {hasBattleRewardLeft ? `승리 +${m.reward}🪙` : '친선전 모드'}
                     </span>
                   </button>
                 );
@@ -1096,6 +1135,9 @@ export default function PlazaModal({
                   {activeMode === 'DICE' && '주사위 2개를 굴려 합이 높은 쪽이 승리! (더블 승리 시 2배 +100🪙)'}
                   {activeMode === 'DUEL' && '⚔️창 > 🔥필살기 > 🛡️방패 > ⚔️창 상성 심리전 대결!'}
                   {activeMode === 'RPS' && '같은 4자리 숫자를 입력하면 두 캐릭터가 만나 가위바위보 대결을 펼칩니다.'}
+                </div>
+                <div style={{ fontSize: '11.5px', fontWeight: '800', color: '#0369a1' }}>
+                  오늘 IR 코인 보상: {Math.min(irBattleWinsToday, irBattleDailyLimit)} / {irBattleDailyLimit}회
                 </div>
                 <div
                   style={{
@@ -1156,7 +1198,7 @@ export default function PlazaModal({
               <>
                 <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '13.5px', fontWeight: '900', color: '#0284c7' }}>
-                    방 코드: [{joinedRoom}]
+                    방 코드: [{joinedRoom}] · 보상 {Math.min(irBattleWinsToday, irBattleDailyLimit)}/{irBattleDailyLimit}회
                   </span>
                   <button
                     onClick={handleLeaveRoom}
