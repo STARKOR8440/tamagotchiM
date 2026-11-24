@@ -31,6 +31,7 @@ export default function PlazaModal({
   const [messages, setMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [selectedTarget, setSelectedTarget] = useState(null);
+  const [giftCoinAmount, setGiftCoinAmount] = useState(20);
 
   const [roomCode, setRoomCode] = useState('');
   const [joinedRoom, setJoinedRoom] = useState('');
@@ -183,23 +184,26 @@ export default function PlazaModal({
     setEditingProfile(false);
   };
 
+ // handleSendGift 교체
   const handleSendGift = async (targetUser, giftType) => {
     if (targetUser.userId === userId) return;
 
+    const cleanCoinAmt = Math.max(1, Math.min(9999, Math.floor(Number(giftCoinAmount) || 0)));
+
     if (giftType === 'COIN') {
-      if (petCoins < 20) {
+      if (!cleanCoinAmt || petCoins < cleanCoinAmt) {
         sfx.beep();
-        alert('코인이 부족합니다! (20🪙 필요)');
+        alert(`코인이 부족합니다! (${cleanCoinAmt}🪙 필요, 보유: ${petCoins}🪙)`);
         return;
       }
-      onSendGiftCoin(20);
+      onSendGiftCoin(cleanCoinAmt);
     }
 
     sfx.win();
     const giftLabels = {
       HEART: '❤️ 하트(행복+15)',
       CAKE: '🍰 달콤 케이크(포만+15)',
-      COIN: '🪙 20코인 용돈',
+      COIN: `🪙 ${cleanCoinAmt}코인 용돈`,
     };
 
     if (isFirebaseConfigured()) {
@@ -209,6 +213,7 @@ export default function PlazaModal({
           body: JSON.stringify({
             from: nickname,
             type: giftType,
+            amount: giftType === 'COIN' ? cleanCoinAmt : 0,
             ts: Date.now(),
           }),
         });
@@ -706,6 +711,7 @@ export default function PlazaModal({
               })}
             </div>
 
+            // selectedTarget 선물 패널 JSX 교체
             {selectedTarget && (
               <div
                 style={{
@@ -719,7 +725,7 @@ export default function PlazaModal({
                 }}
               >
                 <div style={{ fontSize: '13px', fontWeight: '900', color: '#854d0e' }}>
-                  🎁 [{selectedTarget.nickname}]님에게 선물 보내기
+                  🎁 [{selectedTarget.nickname}]님에게 선물 보내기 (보유: {petCoins}🪙)
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button onClick={() => handleSendGift(selectedTarget, 'HEART')} style={giftBtnStyle}>
@@ -728,8 +734,79 @@ export default function PlazaModal({
                   <button onClick={() => handleSendGift(selectedTarget, 'CAKE')} style={giftBtnStyle}>
                     🍰 케이크(포만+15)
                   </button>
-                  <button onClick={() => handleSendGift(selectedTarget, 'COIN')} style={giftBtnStyle}>
-                    🪙 20코인
+                </div>
+
+                {/* 코인 금액 지정 영역 */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    flexWrap: 'wrap',
+                    background: 'rgba(255,255,255,0.75)',
+                    padding: '6px 8px',
+                    borderRadius: '10px',
+                    border: '1px solid #fde047',
+                  }}
+                >
+                  {[10, 30, 50, 100].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => {
+                        sfx.beep();
+                        setGiftCoinAmount(preset);
+                      }}
+                      style={{
+                        padding: '4px 8px',
+                        borderRadius: '8px',
+                        border: giftCoinAmount === preset ? '1.5px solid #ca8a04' : '1px solid #cbd5e1',
+                        background: giftCoinAmount === preset ? '#facc15' : '#ffffff',
+                        fontSize: '11.5px',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        color: '#0f172a',
+                      }}
+                    >
+                      {preset}🪙
+                    </button>
+                  ))}
+                  <input
+                    type="number"
+                    min={1}
+                    max={9999}
+                    value={giftCoinAmount}
+                    onChange={(e) => setGiftCoinAmount(e.target.value.replace(/\D/g, ''))}
+                    placeholder="금액"
+                    style={{
+                      width: '72px',
+                      padding: '4px 6px',
+                      borderRadius: '8px',
+                      border: '1.5px solid #eab308',
+                      fontSize: '13px',
+                      fontWeight: '800',
+                      textAlign: 'right',
+                      background: '#ffffff',
+                      color: '#0f172a',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleSendGift(selectedTarget, 'COIN')}
+                    style={{
+                      flex: 1,
+                      minWidth: '86px',
+                      background: '#eab308',
+                      color: '#0f172a',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '5px 8px',
+                      fontSize: '12px',
+                      fontWeight: '900',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    🪙 {Number(giftCoinAmount) || 0}코인 보내기
                   </button>
                 </div>
               </div>

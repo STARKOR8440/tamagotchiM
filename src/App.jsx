@@ -175,7 +175,16 @@ export default function App() {
       happiness: Math.max(0, parsed.happiness - decay),
       cleanliness: Math.max(0, parsed.cleanliness - decay),
       energy: Math.min(100, (parsed.energy ?? 100) + energyGain),
-      poopCount: Math.min(3, parsed.poopCount + Math.floor(elapsed / 3600)),
+      poopCount:
+        SPECIES[parsed.speciesId]?.stage === 'EGG'
+          ? 0
+          : Math.min(
+              3,
+              (parsed.poopCount || 0) +
+                (parsed.cleanliness - decay < 60
+                  ? Math.min(3, Math.floor(elapsed / 1800) + (elapsed >= 900 ? 1 : 0))
+                  : Math.floor(elapsed / 3600))
+            ),
       ageSeconds: (parsed.ageSeconds || 0) + elapsed,
       adultSeconds:
         SPECIES[parsed.speciesId]?.stage === 'ADULT'
@@ -290,7 +299,7 @@ export default function App() {
             list.forEach((g) => {
               if (g.type === 'HEART') addHappiness += 15;
               if (g.type === 'CAKE') addHunger += 15;
-              if (g.type === 'COIN') addCoins += 20;
+              if (g.type === 'COIN') addCoins += Math.max(1, Number(g.amount) || 20);
             });
             return {
               ...p,
@@ -409,7 +418,8 @@ export default function App() {
 
         if (nextAge % 90 === 0 && currentSpec.stage !== 'EGG') {
           const nextClean = Math.max(0, prev.cleanliness - 1);
-          const addPoop = nextClean < 50 && Math.random() < 0.12 ? 1 : 0;
+          const poopChance = nextClean < 40 ? 0.35 : nextClean < 65 ? 0.2 : 0.08;
+          const addPoop = Math.random() < poopChance ? 1 : 0;
 
           return {
             ...prev,
