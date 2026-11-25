@@ -5,7 +5,6 @@ import { FIREBASE_DB_URL, isFirebaseConfigured } from './firebaseConfig';
 import { sfx } from './sound';
 
 const AVATAR_CANDIDATES = Object.values(SPECIES).filter((s) => s.stage !== 'EGG');
-const DAILY_GIFT_COIN_LIMIT = 200;
 
 const BATTLE_MODES = [
   { id: 'RPS', icon: '✊', label: '가위바위보', reward: 50 },
@@ -26,20 +25,6 @@ const DUEL_OPTIONS = [
 ];
 
 const DICE_FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
-
-const getTodayKey = () => new Date().toISOString().slice(0, 10);
-
-const getSentCoinsToday = () => {
-  const key = `tamagotchi_gift_sent_${getTodayKey()}`;
-  return Math.max(0, Number(localStorage.getItem(key) || 0));
-};
-
-const addSentCoinsToday = (amount) => {
-  const key = `tamagotchi_gift_sent_${getTodayKey()}`;
-  const nextVal = getSentCoinsToday() + Math.max(0, Number(amount) || 0);
-  localStorage.setItem(key, String(nextVal));
-  return nextVal;
-};
 
 export default function PlazaModal({
   userId,
@@ -63,7 +48,6 @@ export default function PlazaModal({
   const [chatInput, setChatInput] = useState('');
   const [selectedTarget, setSelectedTarget] = useState(null);
   const [giftCoinAmount, setGiftCoinAmount] = useState(20);
-  const [sentCoinsToday, setSentCoinsToday] = useState(() => getSentCoinsToday());
 
   const [roomCode, setRoomCode] = useState('');
   const [joinedRoom, setJoinedRoom] = useState('');
@@ -72,8 +56,7 @@ export default function PlazaModal({
 
   const chatEndRef = useRef(null);
 
-  const normalizedGiftCoins = Math.max(1, Math.min(9999, Math.floor(Number(giftCoinAmount) || 1)));
-  const remainingGiftLimit = Math.max(0, DAILY_GIFT_COIN_LIMIT - sentCoinsToday);
+  const normalizedGiftCoins = Math.max(1, Math.min(999999, Math.floor(Number(giftCoinAmount) || 1)));
 
   // 내 접속 상태(Presence) 등록 및 15초마다 하트비트 갱신
   useEffect(() => {
@@ -226,28 +209,12 @@ export default function PlazaModal({
   const handleSendGift = async (targetUser, giftType) => {
     if (targetUser.userId === userId) return;
 
-    const latestSent = getSentCoinsToday();
-    setSentCoinsToday(latestSent);
-
     if (giftType === 'COIN') {
       if ((petCoins || 0) < normalizedGiftCoins) {
         sfx.beep();
         alert(`코인이 부족합니다! (${normalizedGiftCoins}🪙 필요, 보유: ${petCoins || 0}🪙)`);
         return;
       }
-      if (latestSent + normalizedGiftCoins > DAILY_GIFT_COIN_LIMIT) {
-        sfx.beep();
-        alert(
-          `오늘 코인 선물 한도(${DAILY_GIFT_COIN_LIMIT}🪙)를 초과했습니다!\n오늘 보낸 코인: ${latestSent}🪙 (남은 한도: ${Math.max(
-            0,
-            DAILY_GIFT_COIN_LIMIT - latestSent
-          )}🪙)`
-        );
-        return;
-      }
-
-      const updatedSent = addSentCoinsToday(normalizedGiftCoins);
-      setSentCoinsToday(updatedSent);
       onSendGiftCoin(normalizedGiftCoins);
     }
 
@@ -850,7 +817,6 @@ export default function PlazaModal({
                     onClick={() => {
                       if (isMe) return;
                       sfx.beep();
-                      setSentCoinsToday(getSentCoinsToday());
                       setSelectedTarget(isSelected ? null : u);
                     }}
                     style={{
@@ -911,7 +877,7 @@ export default function PlazaModal({
                     🎁 [{selectedTarget.nickname}]님에게 선물 보내기
                   </span>
                   <span style={{ fontSize: '11.5px', fontWeight: '800', color: '#a16207' }}>
-                    일일 코인 한도: {sentCoinsToday}/{DAILY_GIFT_COIN_LIMIT}🪙 (남음 {remainingGiftLimit}🪙)
+                    보유 코인: {petCoins || 0}🪙
                   </span>
                 </div>
 
@@ -962,13 +928,13 @@ export default function PlazaModal({
                   <input
                     type="number"
                     min={1}
-                    max={9999}
+                    max={999999}
                     value={giftCoinAmount}
                     onChange={(e) => setGiftCoinAmount(e.target.value.replace(/\D/g, ''))}
                     onBlur={() => setGiftCoinAmount(String(normalizedGiftCoins))}
                     placeholder="금액"
                     style={{
-                      width: '72px',
+                      width: '78px',
                       padding: '4px 6px',
                       borderRadius: '8px',
                       border: '1.5px solid #eab308',
