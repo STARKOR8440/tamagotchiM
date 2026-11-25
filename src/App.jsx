@@ -16,13 +16,12 @@ import {
 } from './evolutionTree';
 import { sfx } from './sound';
 
-// 테스터 데이터 초기화를 위해 스토리지 키를 v2로 업데이트 (구버전 v1 자동 삭제)
 const STORAGE_KEY = 'mobile_tamagotchi_pwa_v2';
 const LEGACY_STORAGE_KEYS = ['mobile_tamagotchi_pwa_v1'];
+const IR_BATTLE_STORAGE_KEY = 'tamagotchi_ir_battle_v1';
 
 const MENU_IDS = ['FEED', 'PLAY', 'CLEAN', 'SHOP', 'STATUS', 'DEX'];
-// 아래 비밀번호를 원하시는 새 코드로 변경하세요
-const DEV_PASSCODE = '0330';
+const DEV_PASSCODE = '8440';
 
 const FOOD_MENU = [
   // 1페이지: 식사류
@@ -107,7 +106,26 @@ const FOOD_MENU = [
   },
 ];
 
-const getTodayStr = () => new Date().toISOString().slice(0, 10);
+// 로컬 표준시(한국 KST 등 기기 표준시) 기준 YYYY-MM-DD 반환
+const getStandardDateStr = (ts = Date.now()) => {
+  const d = new Date(ts);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// 표준시 기준 24시간(1일) 경과 여부 판정
+const hasPassedStandard24h = (adultEnteredAt, adultSeconds = 0, now = Date.now()) => {
+  if (!adultEnteredAt) return (adultSeconds || 0) >= 86400;
+  const enteredDay = getStandardDateStr(adultEnteredAt);
+  const currentDay = getStandardDateStr(now);
+  const elapsedMs = Math.max(0, now - adultEnteredAt);
+  return currentDay !== enteredDay && elapsedMs >= 12 * 60 * 60 * 1000
+    ? true
+    : elapsedMs >= 86400 * 1000;
+};
+
 const createUserId = () => 'u_' + Math.random().toString(36).slice(2, 10);
 
 const INITIAL_STATE = {
@@ -121,12 +139,13 @@ const INITIAL_STATE = {
   poopCount: 0,
   ageSeconds: 0,
   adultSeconds: 0,
+  adultEnteredAt: null,
   gameWins: 0,
   winStreak: 0,
   coins: 50,
   digestUntil: 0,
   snacksToday: 0,
-  snackDate: getTodayStr(),
+  snackDate: getStandardDateStr(),
   speciesId: 'EGG',
   skin: 'SODA_BLUE',
   unlockedSkins: ['SODA_BLUE'],
@@ -151,29 +170,34 @@ export default function App() {
       }
     });
 
+    const now = Date.now();
+    const today = getStandardDateStr(now);
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) {
       return {
         ...INITIAL_STATE,
         userId: createUserId(),
-        snackDate: getTodayStr(),
+        snackDate: today,
       };
     }
 
     const parsed = JSON.parse(saved);
-    const elapsed = Math.max(0, Math.floor((Date.now() - parsed.lastUpdated) / 1000));
+    const elapsed = Math.max(0, Math.floor((now - (parsed.lastUpdated || now)) / 1000));
     const decay = Math.floor(elapsed / 90);
     const energyGain = Math.floor(elapsed / 15);
+    const isAdult = SPECIES[parsed.speciesId]?.stage === 'ADULT';
+    const nextClean = Math.max(0, (parsed.cleanliness ?? 90) - decay);
 
     return {
       ...INITIAL_STATE,
       ...parsed,
       userId: parsed.userId || createUserId(),
       nickname: parsed.nickname || '다마친구',
-      plazaAvatarId: parsed.plazaAvatarId || (parsed.speciesId !== 'EGG' ? parsed.speciesId : 'BABY_MARU'),
-      hunger: Math.max(0, parsed.hunger - decay),
-      happiness: Math.max(0, parsed.happiness - decay),
-      cleanliness: Math.max(0, parsed.cleanliness - decay),
+      plazaAvatarId:
+        parsed.plazaAvatarId || (parsed.speciesId !== 'EGG' ? parsed.speciesId : 'BABY_MARU'),
+      hunger: Math.max(0, (parsed.hunger ?? 75) - decay),
+      happiness: Math.max(0, (parsed.happiness ?? 75) - decay),
+      cleanliness: nextClean,
       energy: Math.min(100, (parsed.energy ?? 100) + energyGain),
       poopCount:
         SPECIES[parsed.speciesId]?.stage === 'EGG'
@@ -181,15 +205,17 @@ export default function App() {
           : Math.min(
               3,
               (parsed.poopCount || 0) +
-                (parsed.cleanliness - decay < 60
+                (nextClean < 60
                   ? Math.min(3, Math.floor(elapsed / 1800) + (elapsed >= 900 ? 1 : 0))
                   : Math.floor(elapsed / 3600))
             ),
       ageSeconds: (parsed.ageSeconds || 0) + elapsed,
-      adultSeconds:
-        SPECIES[parsed.speciesId]?.stage === 'ADULT'
-          ? (parsed.adultSeconds || 0) + elapsed
-          : 0,
+      adultSeconds: isAdult ? (parsed.adultSeconds || 0) + elapsed : 0,
+      adultEnteredAt: isAdult
+        ? parsed.adultEnteredAt || now - ((parsed.adultSeconds || 0) + elapsed) * 1000
+        : null,
+      snacksToday: parsed.snackDate === today ? parsed.snacksToday || 0 : 0,
+      snackDate: today,
     };
   });
 
@@ -202,26 +228,26 @@ export default function App() {
   const [showGuide, setShowGuide] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showPlaza, setShowPlaza] = useState(false);
-  const [irBattleMeta, setIrBattleMeta] = useState(() => {
-  const today = getTodayStr();
-  const saved = localStorage.getItem('tamagotchi_ir_battle_v1');
-  if (!saved) return { date: today, wins: 0 };
-  try {
-    const parsed = JSON.parse(saved);
-    return parsed.date === today ? { date: today, wins: parsed.wins || 0 } : { date: today, wins: 0 };
-  } catch {
-    return { date: today, wins: 0 };
-  }
-});
-
-useEffect(() => {
-  localStorage.setItem('tamagotchi_ir_battle_v1', JSON.stringify(irBattleMeta));
-}, [irBattleMeta]);
   const [devUnlocked, setDevUnlocked] = useState(false);
   const [actionState, setActionState] = useState('IDLE');
   const [isMuted, setIsMuted] = useState(false);
   const [nowTs, setNowTs] = useState(() => Date.now());
   const [shellScale, setShellScale] = useState(calcOptimalScale);
+
+  // 표준시 기준 일일 IR 대전 보상 카운트
+  const [irBattleMeta, setIrBattleMeta] = useState(() => {
+    const today = getStandardDateStr();
+    const saved = localStorage.getItem(IR_BATTLE_STORAGE_KEY);
+    if (!saved) return { date: today, wins: 0 };
+    try {
+      const parsed = JSON.parse(saved);
+      return parsed.date === today
+        ? { date: today, wins: parsed.wins || 0 }
+        : { date: today, wins: 0 };
+    } catch {
+      return { date: today, wins: 0 };
+    }
+  });
 
   // 상단 네온 전광판 상태
   const [tickerText, setTickerText] = useState('');
@@ -247,6 +273,10 @@ useEffect(() => {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...pet, lastUpdated: Date.now() }));
   }, [pet]);
+
+  useEffect(() => {
+    localStorage.setItem(IR_BATTLE_STORAGE_KEY, JSON.stringify(irBattleMeta));
+  }, [irBattleMeta]);
 
   const triggerSingleTicker = (singleMessage) => {
     setTickerText(singleMessage);
@@ -384,17 +414,27 @@ useEffect(() => {
       secretHistory: nextSecretHistory,
       skin: nextSkin,
       unlockedSkins: nextUnlockedSkins,
+      adultEnteredAt:
+        evolvedSpec.stage === 'ADULT' ? prev.adultEnteredAt || Date.now() : null,
       evolvedSpec,
     };
   };
 
   useEffect(() => {
     const loop = setInterval(() => {
-      setNowTs(Date.now());
+      const tickNow = Date.now();
+      const currentDay = getStandardDateStr(tickNow);
+      setNowTs(tickNow);
+
       setPet((prev) => {
         const nextAge = prev.ageSeconds + 1;
         const currentSpec = SPECIES[prev.speciesId] || SPECIES.EGG;
-        const nextAdultSec = currentSpec.stage === 'ADULT' ? (prev.adultSeconds || 0) + 1 : 0;
+        const isAdult = currentSpec.stage === 'ADULT';
+        const nextAdultSec = isAdult ? (prev.adultSeconds || 0) + 1 : 0;
+        const nextAdultEnteredAt = isAdult
+          ? prev.adultEnteredAt || tickNow - nextAdultSec * 1000
+          : null;
+        const nextSnacksToday = prev.snackDate === currentDay ? prev.snacksToday || 0 : 0;
 
         let evolvedPatch = {
           speciesId: prev.speciesId,
@@ -403,6 +443,7 @@ useEffect(() => {
           secretHistory: prev.secretHistory || [],
           skin: prev.skin,
           unlockedSkins: prev.unlockedSkins || ['SODA_BLUE'],
+          adultEnteredAt: nextAdultEnteredAt,
         };
 
         const evoStatus = checkEvolutionStatus({ ...prev, ageSeconds: nextAge });
@@ -416,6 +457,7 @@ useEffect(() => {
             secretHistory: applied.secretHistory,
             skin: applied.skin,
             unlockedSkins: applied.unlockedSkins,
+            adultEnteredAt: applied.adultEnteredAt,
           };
           sfx.evolve();
           triggerAction('HAPPY');
@@ -424,12 +466,13 @@ useEffect(() => {
               ? `시크릿! ${applied.evolvedSpec.name} + 전용스킨! 🎁`
               : `${applied.evolvedSpec.name} 진화! ✨`
           );
-        } else if (evoStatus.reason && Date.now() - lastHintAlertRef.current > 45000) {
+        } else if (evoStatus.reason && tickNow - lastHintAlertRef.current > 45000) {
           triggerReaction(evoStatus.reason);
-          lastHintAlertRef.current = Date.now();
+          lastHintAlertRef.current = tickNow;
         }
 
-        const nextEnergy = nextAge % 15 === 0 ? Math.min(100, (prev.energy ?? 100) + 1) : (prev.energy ?? 100);
+        const nextEnergy =
+          nextAge % 15 === 0 ? Math.min(100, (prev.energy ?? 100) + 1) : (prev.energy ?? 100);
 
         if (nextAge % 90 === 0 && currentSpec.stage !== 'EGG') {
           const nextClean = Math.max(0, prev.cleanliness - 1);
@@ -441,6 +484,8 @@ useEffect(() => {
             ...evolvedPatch,
             ageSeconds: nextAge,
             adultSeconds: nextAdultSec,
+            snacksToday: nextSnacksToday,
+            snackDate: currentDay,
             energy: nextEnergy,
             hunger: Math.max(0, prev.hunger - 1),
             happiness: Math.max(0, prev.happiness - 1),
@@ -454,6 +499,8 @@ useEffect(() => {
           ...evolvedPatch,
           ageSeconds: nextAge,
           adultSeconds: nextAdultSec,
+          snacksToday: nextSnacksToday,
+          snackDate: currentDay,
           energy: nextEnergy,
         };
       });
@@ -492,12 +539,13 @@ useEffect(() => {
 
   const startNextGeneration = (isHardReset = false) => {
     sfx.confirm();
+    const today = getStandardDateStr();
     if (isHardReset) {
       setPet((prev) => ({
         ...INITIAL_STATE,
         userId: prev.userId,
         nickname: prev.nickname,
-        snackDate: getTodayStr(),
+        snackDate: today,
       }));
     } else {
       setPet((prev) => ({
@@ -505,7 +553,7 @@ useEffect(() => {
         userId: prev.userId,
         nickname: prev.nickname,
         plazaAvatarId: prev.plazaAvatarId,
-        snackDate: getTodayStr(),
+        snackDate: today,
         coins: prev.coins + 50,
         skin: prev.skin,
         unlockedSkins: prev.unlockedSkins,
@@ -521,7 +569,7 @@ useEffect(() => {
 
   const feedPet = (foodItem) => {
     const now = Date.now();
-    const today = getTodayStr();
+    const today = getStandardDateStr(now);
     const currentSnacks = pet.snackDate === today ? pet.snacksToday : 0;
     const cost = foodItem.price || 0;
 
@@ -791,9 +839,13 @@ useEffect(() => {
   };
 
   const currentSpec = SPECIES[pet.speciesId] || SPECIES.EGG;
-  const currentHour = new Date().getHours();
+  const standardToday = getStandardDateStr(nowTs);
+  const currentHour = new Date(nowTs).getHours();
   const isSleeping = currentHour >= 23 || currentHour < 6;
-  const canGraduate = currentSpec.stage === 'ADULT' && (pet.adultSeconds || 0) >= 86400;
+  const canGraduate =
+    currentSpec.stage === 'ADULT' &&
+    hasPassedStandard24h(pet.adultEnteredAt, pet.adultSeconds, nowTs);
+  const irWinsToday = irBattleMeta.date === standardToday ? irBattleMeta.wins : 0;
 
   const availableShopSkins = Object.keys(SHELL_SKINS).filter(
     (k) => !SHELL_SKINS[k].isSecret || pet.unlockedSkins?.includes(k)
@@ -805,7 +857,7 @@ useEffect(() => {
   const visibleFoods = FOOD_MENU.filter((f) =>
     foodPage === 0 ? f.category === 'MEAL' : f.category === 'SNACK'
   );
-  const todaySnacksUsed = pet.snackDate === getTodayStr() ? pet.snacksToday : 0;
+  const todaySnacksUsed = pet.snackDate === standardToday ? pet.snacksToday : 0;
 
   // 소화 남은 시간 실시간 계산 (MM:SS)
   const digestRemainSec = Math.max(0, Math.ceil(((pet.digestUntil || 0) - nowTs) / 1000));
@@ -1382,7 +1434,7 @@ useEffect(() => {
               </div>
             )}
 
-            {/* LCD 상태 화면 (포만·행복·체력 + 하늘·대지·바다 3대 속성 표시) */}
+            {/* LCD 상태 화면 */}
             {lcdScreen === 'STATUS' && (
               <div
                 style={{
@@ -1610,7 +1662,7 @@ useEffect(() => {
           nickname={pet.nickname}
           avatarId={pet.plazaAvatarId || 'BABY_MARU'}
           petCoins={pet.coins}
-          irBattleWinsToday={irBattleMeta.date === getTodayStr() ? irBattleMeta.wins : 0}
+          irBattleWinsToday={irWinsToday}
           irBattleDailyLimit={5}
           onUpdateProfile={(newNick, newAvatar) => {
             setPet((p) => ({ ...p, nickname: newNick, plazaAvatarId: newAvatar }));
@@ -1619,7 +1671,7 @@ useEffect(() => {
             setPet((p) => ({ ...p, coins: Math.max(0, (p.coins || 0) - cost) }));
           }}
           onWinBattleCoin={(reward) => {
-            const today = getTodayStr();
+            const today = getStandardDateStr();
             const currentWins = irBattleMeta.date === today ? irBattleMeta.wins : 0;
             if (currentWins >= 5) {
               sfx.beep();
