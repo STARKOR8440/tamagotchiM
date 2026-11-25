@@ -21,7 +21,7 @@ const LEGACY_STORAGE_KEYS = ['mobile_tamagotchi_pwa_v1'];
 const IR_BATTLE_STORAGE_KEY = 'tamagotchi_ir_battle_v1';
 
 const MENU_IDS = ['FEED', 'PLAY', 'CLEAN', 'SHOP', 'STATUS', 'DEX'];
-const DEV_PASSCODE = '8440';
+const DEV_PASSCODE = '0330';
 
 const FOOD_MENU = [
   // 1페이지: 식사류
