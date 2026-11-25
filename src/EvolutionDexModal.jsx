@@ -24,6 +24,23 @@ const SECRET_SPACE_VARIANTS = (() => {
     : ['SECRET_WOODY', 'SECRET_GROGU', 'SECRET_KITTY', 'SECRET_R2D2', 'SECRET_SNOOPY'];
 })();
 
+const buildFallbackHint = (spec) => {
+  if (!spec) return '새로운 조건으로 육성해 보세요.';
+  if (spec.hint && String(spec.hint).trim()) return spec.hint;
+  if (spec.stage === 'EGG') return '시간이 지나면 부화합니다.';
+  if (spec.isSecretVariant || spec.id === 'LEGEND_SECRET') {
+    return '하늘·대지·바다 각 50↑ 및 미니게임 50승↑ 조건으로 도전해 보세요.';
+  }
+  const biomeLabel = BIOME_META[spec.biome]?.label;
+  if (spec.stage === 'ADULT' && biomeLabel) {
+    return `${biomeLabel} 속성을 높게 키운 뒤 성체 진화를 노려보세요.`;
+  }
+  if (biomeLabel) {
+    return `${biomeLabel} 관련 식사·간식·놀이를 꾸준히 챙겨보세요.`;
+  }
+  return '포만감과 행복도, 미니게임 승리를 고르게 쌓아보세요.';
+};
+
 export default function EvolutionDexModal({
   unlockedSpecies = ['EGG'],
   secretHistory = [],
@@ -204,18 +221,20 @@ export default function EvolutionDexModal({
                 border: '1px solid #bae6fd',
               }}
             >
-              {selectedSpec.stageLabel} · {BIOME_META[selectedSpec.biome]?.label}
+              {selectedSpec.stageLabel || selectedSpec.stage} · {BIOME_META[selectedSpec.biome]?.label || '기본'}
             </span>
           </div>
           <div style={{ fontSize: '12.5px', color: '#334155', lineHeight: 1.4 }}>
-            {isSelectedUnlocked ? displaySpec.desc : `힌트: ${selectedSpec.hint}`}
+            {isSelectedUnlocked
+              ? displaySpec.desc || '수집 완료된 캐릭터입니다.'
+              : `힌트: ${buildFallbackHint(selectedSpec)}`}
           </div>
 
           {isSecretSpaceSlot && (
             <div style={{ fontSize: '11.5px', fontWeight: '800', color: '#7e22ce', marginTop: '2px' }}>
               🎁 시크릿 에디션 수집 ({secretHistory.length}/{SECRET_SPACE_VARIANTS.length}):{' '}
               {SECRET_SPACE_VARIANTS.map((sid) =>
-                secretHistory.includes(sid) ? SPECIES[sid].name.split(' ')[1] : '???'
+                secretHistory.includes(sid) ? SPECIES[sid]?.name?.split(' ')[1] || sid : '???'
               ).join(' · ')}
             </div>
           )}
@@ -328,7 +347,7 @@ export default function EvolutionDexModal({
                       >
                         {unlocked
                           ? sp.id === 'LEGEND_SECRET'
-                            ? SPECIES[spriteToShow]?.name.split(' ')[1] || '시크릿'
+                            ? SPECIES[spriteToShow]?.name?.split(' ')[1] || '시크릿'
                             : sp.name
                           : '???'}
                       </span>
